@@ -57,6 +57,10 @@ push所有tag，命令格式为：
 
 git push --tags
 
+删除 tag
+
+git tag -d v1.0.0
+
 **7.版本回退（将主干分支回退到某个版本）**
 
 git reset --hard d5a65e
