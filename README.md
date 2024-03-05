@@ -73,3 +73,10 @@ git  reset  --hard HEAD
 
 git reset --hard aaff087
 
+**8.覆盖本地项目**
+
+git fetch --all
+
+git reset --hard origin/main
+
+git pull
