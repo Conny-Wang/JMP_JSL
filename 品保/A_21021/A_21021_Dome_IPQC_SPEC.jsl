@@ -1,0 +1,121 @@
+﻿//
+//21021_Mold_IPQC_SPEC
+//Force 规格更新日期 2024/01/01
+
+Spectext = "Spec 引用成功！";
+
+//==================================
+
+//大 Dome Force 规格
+
+L_LSL_PF = 53;
+L_USL_PF = 69;
+
+L_LSL_PT = 0.19;
+L_USL_PT = 0.49;
+
+L_LSL_BF = 19;
+L_USL_BF = 39;
+
+L_LSL_BT = 0.39;
+L_USL_BT = 0.79;
+
+L_LSL_CR = 45;
+L_USL_CR = 63;
+
+L_LSL_RPF = 41;
+
+L_LSL_160T = 0.66;
+L_USL_160T = 1.06;
+
+L_LSL_PFmean = 60;
+L_USL_PFmean = 64;
+
+//小 Dome Force 规格
+
+S_LSL_PF = 54;
+S_USL_PF = 70;
+
+S_LSL_PT = 0.21;
+S_USL_PT = 0.51;
+
+S_LSL_BF = 19;
+S_USL_BF = 39;
+
+S_LSL_BT = 0.45;
+S_USL_BT = 0.85;
+
+S_LSL_CR = 42;
+S_USL_CR = 62;
+
+S_LSL_RPF = 44;
+
+S_LSL_160T = 0.9;
+S_USL_160T = 1.3;
+
+S_LSL_PFmean = 61;
+S_USL_PFmean = 65;
+
+//==================================
+
+//Dim 规格更新日期 2024/01/03
+
+//==================================
+
+//大 Dome Dim 规格
+
+L_LSL_FAI_1 = 1.86;
+L_USL_FAI_1 = 1.94;
+
+L_LSL_FAI_2 = 5.35;
+L_USL_FAI_2 = 5.45;
+
+L_LSL_FAI_3 = 0.52;
+L_USL_FAI_3 = 0.58;
+
+L_LSL_FAI_4 = 3.19;
+L_USL_FAI_4 = 3.29;
+
+L_LSL_FAI_5 = 3.75;
+L_USL_FAI_5 = 3.85;
+
+L_LSL_FAI_9 = 1.97;
+L_USL_FAI_9 = 2.07;
+
+L_LSL_FAI_15 = 0.22;
+L_USL_FAI_1 5= 0.3;
+
+L_LSL_FAI_16 = 0.75;
+L_USL_FAI_16 = 0.85;
+
+L_USL_Offset = 0.08;
+
+//小 Dome Dim 规格
+
+S_LSL_FAI_1 = 1.86;
+S_USL_FAI_1 = 1.94;
+
+S_LSL_FAI_2 = 3.53;
+S_USL_FAI_2 = 3.63;
+
+S_LSL_FAI_3 = 0.55;
+S_USL_FAI_3 = 0.61;
+
+S_LSL_FAI_4 = 2.23;
+S_USL_FAI_4 = 2.33;
+
+S_LSL_FAI_5 = 2.56;
+S_USL_FAI_5 = 2.66;
+
+S_LSL_FAI_9 = 0.95;
+S_USL_FAI_9 = 1.05;
+
+S_LSL_FAI_15 = 0.21;
+S_USL_FAI_1 5= 0.27;
+
+S_LSL_FAI_16 = 0.55;
+S_USL_FAI_16 = 0.65;
+
+S_USL_Offset = 0.08;
+
+//==================================

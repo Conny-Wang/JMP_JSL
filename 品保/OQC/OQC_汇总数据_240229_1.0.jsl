@@ -1,0 +1,46 @@
+﻿//
+
+Names Default To Here( 1 );
+//判断桌面是否有 JMP 文件
+drijmp = Is Directory("$Desktop\OQC_Data_JMP");
+//如果没有就创建一个 JMP 文件夹
+if (drijmp == 0,
+Create Directory("$Desktop\OQC_Data_JMP" ));
+//设置桌面 JMP 文件夹为默认目录
+dri = Set Default Directory("$Desktop\OQC_Data_JMP");
+
+//批量导入需要合并的文件，默认参数，JMP 自动推导，可手动配置参数。
+mfi = Multiple File Import();
+//设置导入目录
+mfi << Set Folder(dri);
+//设置导入的编码为中文字体
+mfi<<Set Charset( "gb2312" );
+//批量导入
+mfi << Import Data();
+//获取已经开的所有表数量
+open_tables = N Table();
+//判断数据是否合并为 1 个，如果不是说明数据格式一致。
+//如果合并发现多余2个表弹窗提醒并停止下面代码继续执行。
+if (open_tables>1,
+    win = New Window( "错误提示",
+    <<Modal,
+    Text Box( "请检查数据\!r数据格式不一致" ),
+    Button Box( "OK" ),);
+    Stop(),
+);
+//导入后定义当前活动表为 datatable
+dt = Current Data Table();
+if (open_tables==0,
+    win = New Window( "错误提示",
+    <<Modal,
+    Text Box( "未合并\!r请检查桌面\!rOQC_Data_JMP\!r文件夹是否是空" ),
+    Button Box( "OK" ),);
+    Stop(),
+);
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+//保存数据
+Try(dt <<Save("$Desktop\OQC 汇总数据.jmp"),"保存失败！");
+Close All( Data Tables, NoSave );
