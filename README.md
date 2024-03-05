@@ -5,6 +5,8 @@ JMP Script Language 是 JMP 自带的脚本语言
 
 # Git 使用帮助
 
+参考链接 https://www.ruanyifeng.com/blog/2018/10/git-internals.html
+
 **1.克隆仓库到本地**
 
 git clone https://github.com/Conny-Wang/JMP_JSL.git
