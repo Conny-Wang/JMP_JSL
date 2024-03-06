@@ -1,0 +1,183 @@
+﻿//
+Names Default To Here( 1 );
+//判断桌面是否有 JMP 文件
+drijmp = Is Directory("$Desktop\Source_Data");
+//如果没有就创建一个 JMP 文件夹
+if (drijmp == 0,
+Create Directory("$Desktop\Source_Data" ));
+//设置桌面 JMP 文件夹为默认目录
+dri = Set Default Directory("$Desktop\Source_Data");
+
+//批量导入需要合并的文件，默认参数，JMP 自动推导，可手动配置参数。
+mfi = Multiple File Import();
+//设置导入目录
+mfi << Set Folder(dri);
+//设置导入的编码为中文字体
+mfi<<Set Charset( "gb2312" );
+//批量导入
+mfi << Import Data();
+
+// 获取表名称
+dtlist = Get Data Table List();
+
+// 遍历数据表删除多余的列
+For( i = 1, i <= N Items( dtlist ), i++,
+	For( j = N Cols( dtlist[i] ), j >= 12, j--,
+		dtlist[i] << Delete Columns( j )
+	)
+);
+
+// 新建一列存放测试项目
+For( i = 1, i <= N Items( dtlist ), i++,
+	dtlist[i] << New Column( "测试项目", "Character", Set Each Value( Char( Column Name( 11 ) ) ) )
+	
+);
+
+// 修改数据列名称
+For( i = 1, i <= N Items( dtlist ), i++,
+	Column( dtlist[i],11 ) << Set Name( "Data" )
+);
+// 修改测试日期为数字
+For( i = 1, i <= N Items( dtlist ), i++,
+	Column( dtlist[i],4 ) <<  Data Type( Numeric ) << Set Modeling Type( "Continuous" )
+);
+// 修改测试时间为数字
+For( i = 1, i <= N Items( dtlist ), i++,
+	Column( dtlist[i],5 ) <<  Data Type( Numeric ) << Set Modeling Type( "Continuous" )
+);
+
+// 修改列名称
+ColNameLsit = {"机种","阶段","机台","测试日期","测试时间","测试人员","Data Type","编号",
+"Key Size","Key NO"};
+
+For( i = 1, i <= N Items( dtlist ), i++,
+	For( j = 1, j <= 10, j++,
+		Column( dtlist[i], j ) << Set Name( ColNameLsit[j] )
+	)
+);
+// 汇总表
+dt = Current Data Table();
+dt << Concatenate( dtlist );
+// 关闭多余的表
+For( i = 1, i <= N Items( dtlist ), i++,
+	Close(dtlist[i]);
+);
+// 移动数据列到最后
+dt = Current Data Table();
+dt << Go To( :Data );
+dt << Move Selected Columns( {:Data}, To Last );
+
+ // 格式化测试日期
+dt:测试日期 << Input Format( "y/m/d" ) << Format( "y/m/d", 12 );
+ // 格式化测试时间
+dt:测试时间 << Input Format( "h:m" ) << Format( "h:m", 12 );
+
+// 插入一行写周期
+dt <<  New Column( "周期", Formula(Week Of Year(:测试日期)) );
+dt << Go To( :周期 );
+dt << Move Selected Columns( {:周期}, after( :测试日期 ) );
+dt << Clear Select;
+dt << clearColumnSelection; 
+// 删除公式
+dt:周期 << Delete Formula;
+// 格式化周期为字符串
+dt:周期 << Data Type( Character ) << Set Modeling Type( "Nominal" );
+// 删除数据表脚本
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+
+// 创建银厚度脚本
+dt << New Script( "机种 & 周期-Data", Graph Builder(
+	Size( 1123, 628 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :机种 ),
+		X( :周期, Position( 1 ) ),
+		Y( :Data ),
+		Group X( :测试项目 ),
+		Color( :测试项目 )
+	),
+	Elements(
+		Box Plot( X( 1 ), X( 2 ), Y, Legend( 147 ) ),
+		Caption Box( X( 1 ), X( 2 ), Y, Legend( 148 ) )
+	),
+	Local Data Filter(
+		Add Filter(
+			columns( :测试项目 ),
+			Where( :测试项目 == {"大K下层二次银厚度", "上层银厚度", "下层银厚度", "小K下层二次银厚度"} ),
+			Display( :测试项目, N Items( 6 ) )
+		)
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"Data",
+			ScaleBox,
+			{Min( -6.09411506753687 ), Max( 27.9363970259512 ), Inc( 5 ),
+			Minor Ticks( 1 ), Add Ref Line(
+				10, "Solid", "Fuchsia", "X267x-上下银-USL-10", 1
+			), Add Ref Line( 4, "Solid", "Fuchsia", "X267x-上下银-LSL-4", 1 ),
+			Add Ref Line( 15, "Solid", "Dark Blue", "X267x-空格二次-USL-15", 1 ),
+			Add Ref Line( 9, "Solid", "Dark Blue", "X267x-空格二次-LSL-9", 1 ),
+			Add Ref Line( 25, "Solid", "Dark Red", "X267x-小K-USL-25", 1 ),
+			Add Ref Line( 19, "Solid", "Dark Red", "X267x-小K-LSL-19", 1 )}
+		),
+		Dispatch(
+			{},
+			"400",
+			ScaleBox,
+			{Legend Model(
+				147,
+				Properties( 2, {Fill Color( 14 )}, Item ID( "上层银厚度", 1 ) ),
+				Properties( 3, {Fill Color( 14 )}, Item ID( "下层银厚度", 1 ) )
+			)}
+		)
+	)
+) );
+
+// 新建水胶脚本
+dt << New Script( "水胶", Graph Builder(
+	Size( 1123, 628 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :机种 ),
+		X( :周期, Position( 1 ) ),
+		Y( :Data ),
+		Group X( :测试项目 ),
+		Color( :测试项目 )
+	),
+	Elements(
+		Box Plot( X( 1 ), X( 2 ), Y, Legend( 147 ) ),
+		Caption Box( X( 1 ), X( 2 ), Y, Legend( 148 ) )
+	),
+	Local Data Filter(
+		Add Filter(
+			columns( :测试项目 ),
+			Where( :测试项目 == {"上层水胶厚度", "下层水胶厚度"} ),
+			Display( :测试项目, N Items( 6 ) )
+		)
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"Data",
+			ScaleBox,
+			{Min( -6.09411506753687 ), Max( 35.2382195027035 ), Inc( 5 ),
+			Minor Ticks( 1 ), Add Ref Line(
+				28, "Solid", "Dark Red", "X267x-水胶-USL-28", 1
+			), Add Ref Line( 12, "Solid", "Dark Red", "X267x-水胶-LSL-12", 1 )}
+		),
+		Dispatch(
+			{},
+			"400",
+			ScaleBox,
+			{Legend Model(
+				147,
+				Properties( 1, {Fill Color( 51 )}, Item ID( "上层水胶厚度", 1 ) ),
+				Properties( -1, {Fill Color( 68 )}, Item ID( "下层银厚度", 1 ) )
+			)}
+		),
+		Dispatch( {}, "graph title", TextEditBox, {Set Text( "水胶" )} )
+	)
+));
