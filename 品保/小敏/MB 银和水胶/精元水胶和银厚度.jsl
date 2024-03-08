@@ -85,7 +85,7 @@ dt:周期 << Data Type( Character ) << Set Modeling Type( "Nominal" );
 // 删除数据表脚本
 Script_List = dt << Get Table Script Names;
 dt << Delete Scripts( Script_List );
-dt << Save( "$Desktop\胶水和银线厚度.jmp" );
+
 
 // 创建银厚度脚本
 dt << New Script( "机种 & 周期-Data", Graph Builder(
@@ -181,3 +181,6 @@ dt << New Script( "水胶", Graph Builder(
 		Dispatch( {}, "graph title", TextEditBox, {Set Text( "水胶" )} )
 	)
 ));
+
+// 保存数据表到桌面
+dt << Save( "$Desktop\胶水和银线厚度.jmp" );
