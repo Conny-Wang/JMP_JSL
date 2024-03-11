@@ -1,4 +1,4 @@
-﻿//
+﻿ //
 Names Default To Here( 1 );
 //判断桌面是否有 JMP 文件
 drijmp = Is Directory("$Desktop\Source_Data");
@@ -100,13 +100,13 @@ dt << New Script( "机种 & 周期-Data", Graph Builder(
 	),
 	Elements(
 		Box Plot( X( 1 ), X( 2 ), Y, Legend( 147 ) ),
-		Caption Box( X( 1 ), X( 2 ), Y, Legend( 148 ) )
+		Caption Box( X( 1 ), X( 2 ), Y, Legend( 148 ),Number Format( "Fixed Dec", 7, 3 ))
 	),
 	Local Data Filter(
 		Add Filter(
 			columns( :测试项目 ),
 			Where( :测试项目 == {"大K下层二次银厚度", "上层银厚度", "下层银厚度", "小K下层二次银厚度"} ),
-			Display( :测试项目, N Items( 6 ) )
+			Display( :测试项目, N Items( 7 ) )
 		)
 	),
 	SendToReport(
@@ -114,10 +114,10 @@ dt << New Script( "机种 & 周期-Data", Graph Builder(
 			{},
 			"Data",
 			ScaleBox,
-			{Min( -6.09411506753687 ), Max( 27.9363970259512 ), Inc( 5 ),
-			Minor Ticks( 1 ), Add Ref Line(
-				10, "Solid", "Fuchsia", "X267x-上下银-USL-10", 1
-			), Add Ref Line( 4, "Solid", "Fuchsia", "X267x-上下银-LSL-4", 1 ),
+			{Min( -1 ), Max( 30 ), Inc( 2 ),
+			Minor Ticks( 0.1 ), 
+			Add Ref Line(10, "Solid", "Fuchsia", "X267x-上下银-USL-10", 1), 
+			Add Ref Line( 4, "Solid", "Fuchsia", "X267x-上下银-LSL-4", 1 ),
 			Add Ref Line( 15, "Solid", "Dark Blue", "X267x-空格二次-USL-15", 1 ),
 			Add Ref Line( 9, "Solid", "Dark Blue", "X267x-空格二次-LSL-9", 1 ),
 			Add Ref Line( 25, "Solid", "Dark Red", "X267x-小K-USL-25", 1 ),
@@ -149,13 +149,13 @@ dt << New Script( "水胶", Graph Builder(
 	),
 	Elements(
 		Box Plot( X( 1 ), X( 2 ), Y, Legend( 147 ) ),
-		Caption Box( X( 1 ), X( 2 ), Y, Legend( 148 ) )
+		Caption Box( X( 1 ), X( 2 ), Y, Legend( 148 ),Number Format( "Fixed Dec", 7, 3 ) )
 	),
 	Local Data Filter(
 		Add Filter(
 			columns( :测试项目 ),
 			Where( :测试项目 == {"上层水胶厚度", "下层水胶厚度"} ),
-			Display( :测试项目, N Items( 6 ) )
+			Display( :测试项目, N Items( 7 ) )
 		)
 	),
 	SendToReport(
@@ -163,10 +163,10 @@ dt << New Script( "水胶", Graph Builder(
 			{},
 			"Data",
 			ScaleBox,
-			{Min( -6.09411506753687 ), Max( 35.2382195027035 ), Inc( 5 ),
-			Minor Ticks( 1 ), Add Ref Line(
-				28, "Solid", "Dark Red", "X267x-水胶-USL-28", 1
-			), Add Ref Line( 12, "Solid", "Dark Red", "X267x-水胶-LSL-12", 1 )}
+			{Min( -2 ), Max( 36 ), Inc( 2 ),
+			Minor Ticks( 0.1 ), 
+			Add Ref Line(28, "Solid", "Dark Red", "X267x-水胶-USL-28", 1), 
+			Add Ref Line( 12, "Solid", "Dark Red", "X267x-水胶-LSL-12", 1 )}
 		),
 		Dispatch(
 			{},
