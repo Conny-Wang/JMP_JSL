@@ -1,0 +1,83 @@
+﻿//!
+
+Names Default To Here(1);
+//设置当前表为活动表
+dt = Current Data Table();
+If( Is Empty( dt ) == 1,
+	Stop()
+);
+
+// 堆叠测试数据
+dt << Stack(
+	columns(
+		:Sample1, :Sample2, :Sample3, :Sample4, :Sample5, :Sample6, :Sample7,
+		:Sample8, :Sample9, :Sample10, :Sample11, :Sample12, :Sample13, :Sample14,
+		:Sample15, :Sample16, :Sample17, :Sample18, :Sample19, :Sample20, :Sample21,
+		:Sample22, :Sample23, :Sample24, :Sample25, :Sample26, :Sample27, :Sample28,
+		:Sample29, :Sample30, :Sample31, :Sample32
+	),
+	Source Label Column( "Sample" ),
+	Stacked Data Column( "Data" )
+);
+// 关闭数据表不保存
+Close(dt,No Save);
+
+// 设置当前表为活动表
+dt = Current Data Table();
+// 表改名
+dt << set name("IPQC Dim Data");
+// 获取数据
+dataval = dt:data << Get as Matrix;
+// 定位非空值数据
+nonvalrows = Loc Nonmissing( dataval);
+// 选择非空值数据
+dt << Select Rows(nonvalrows);
+// 反选
+dt << Invert Row Selection;
+// 删除空值行
+dt << Delete Rows;
+// 获取 data 数据
+dataval = dt:data << Get as Matrix;
+// 获取规格中值
+Nor = dt:Norminal << Get as Matrix;
+// 获取上公差
+Tolu = dt:Name("+TOL") <<  Get as Matrix;
+// 获取下公差
+Toll = dt:Name("-TOL") <<  Get as Matrix;
+// 上下限规格
+USL = Nor + Tolu;
+LSL = Nor + Toll;
+// 测试数据减去上下限规格
+datausl = dataval - USL;
+datalsl = LSL - dataval;
+// 新建2列存放数据
+dt << New Column("USLR", Format( "Fixed Dec", 12, 2 ));
+dt << New Column("LSLR", Format( "Fixed Dec", 12, 2 ));
+// 赋值数据
+dt:USLR << Set Values(datausl);
+dt:LSLR << Set Values(datalsl);
+
+// 新建2列存放结果
+
+New Column("USL_Result", "Nominal" );
+New Column("LSL_Result", "Nominal" );
+
+// for 循环遍历数据
+// 判断上限
+For( i = 1, i <= N Row( dt ), i++,
+	If( dt:USLR[i] * 10000 >= 1,
+		dt:USL_Result[i] = "超规格上限",
+		dt:USL_Result[i] = "OK"
+	)
+);
+// 判断下限
+For( i = 1, i <= N Row( dt ), i++,
+	If( dt:LSLR[i] * 10000 >= 1,
+		dt:LSL_Result[i] = "超规格下限",
+		dt:LSL_Result[i] = "OK"
+	)
+);
+
+// 获取脚本并删除
+Scriptlist = dt << Get Table Script Names;
+dt << Delete Scripts(Scriptlist);
