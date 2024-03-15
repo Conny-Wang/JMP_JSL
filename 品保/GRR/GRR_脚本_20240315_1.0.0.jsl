@@ -1,0 +1,40 @@
+﻿//
+
+dtspc = data table("X2671-ANSI 规格");
+Targetval = dtspc:Target << Get as Matrix;
+Close(dtspc,No Save);
+dt = Current Data Table();
+
+colMtr = 1::78;
+collist  = {};
+
+For (i = 1,i <= 78,i++,
+	collist[i] = "D" || Char(colMtr[i])
+);
+
+For( i = 1, i <= N Items( collist )  , i++,
+	Column( dt, i+6)  << Set Name( collist[i] )
+);
+
+nw = New Window( "X2671ANSI测试数据-人员-变异性图",	);
+
+For (i = 1,i <= N Items( collist ),i++,
+	Vbox = V List Box(
+		Variability Chart(
+			
+			Y( Column("D" || Char(i) )),
+			Freq( :次数 ),
+			X( :人员, :产品 ),
+			Model( "Crossed" ),
+			Historical Sigma( 0 ),
+			"Gauge R&R"n( 6, Targetval[i] ),
+			"Gauge R&R Report"n( 1 ),
+			SendToReport(
+				Dispatch( {}, "Variability Gauge", OutlineBox, {Close( 1 )} )
+			)
+		),	
+	  );
+	  NW << Append(Vbox)
+	);
+	
+
