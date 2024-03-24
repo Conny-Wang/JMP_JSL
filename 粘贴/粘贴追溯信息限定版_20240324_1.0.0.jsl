@@ -1,0 +1,435 @@
+﻿//
+
+Names Default To Here( 1 );
+
+// 原始数据存放路径
+Source_Path = "$Desktop\JMP\";
+// 胶水记录路径
+Glue_Path = "$Desktop\Glue.jmp";
+// Excel 保存位置
+Excel_Path = "$Desktop\";
+
+
+// 日期格式化
+// 昨天日期
+Today = Short Date( Today() - 24 * 3600 );
+// 拼接日期
+Today = Concat Items( Items( Today, "/" ), "" );
+// 格式化日期为 MMDDYY
+Today_Formate = Left( Today, 4 ) || Right( Today, 2 );
+
+
+// 新建窗口
+nw = New Window( "追溯信息限定版" );
+
+// Box 信息收集
+box_info = Outline Box( "信息填写",
+	V List Box(
+		H List Box( T_Box = Text Box( "填写阶段：  " ), Build_Box = Text Edit Box( "Ramp", <<Set Width( 40 ) ) ),
+		H List Box( D_Box = Text Box( "填写日期：  " ), Date_Box = Text Edit Box( Today_Formate, <<Set Width( 50 ) ) ),
+	),
+	Spacer Box( size( 10, 20 ) ), //保持和其他显示框的间距
+	Button Box( "生成数据", Run_Script ),
+	Spacer Box( size( 10, 30 )), //保持和其他显示框的间距
+	Button Box( "包装1处理",  Run_Script2),
+	Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+	Button Box( "数据合并", Run_Script3 ),
+	Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+	Button Box( "纬创备品", Run_Script4 ),
+
+
+);
+
+// 设置字体颜色和大小
+T_Box << Text Color( "Blue" );
+T_Box << Set Font Style("Bold");
+T_Box << Set Font Size( 11 );
+T_Box << Set Font Name( "幼圆" );
+D_Box << Text Color( "Green" );
+D_Box << Set Font Style("Bold");
+D_Box << Set Font Size( 11 );
+D_Box << Set Font Name( "幼圆" );
+//T_Box << Background Color( "Red" );
+
+// 把 Box 追加到窗口
+nw << Append( box_info );
+// 设置窗体大小和显示位置
+nw << set window size( 250, 500 ) << Move window( 1600, 100 );
+
+// 批量导入文件
+Import_Files = Expr(
+
+// 判断 JMP 文件夹是桌面否存在
+Source_Dir = Is Directory( Source_Path );
+// 如果不存在就创建一个 JMP 文件夹
+If( Source_Dir == 0,
+	Create Directory( Source_Path )
+);
+	
+mfi = Multiple File Import();
+//设置导入目录
+mfi << Set Folder(Source_Path);
+//设置导入的编码为中文字体
+mfi<<Set Charset( "gb2312" );
+//批量导入
+mfi << Import Data();
+
+);
+
+Import_Files_Name = Expr(
+
+// 判断 JMP 文件夹是桌面否存在
+Source_Dir = Is Directory( Source_Path );
+// 如果不存在就创建一个 JMP 文件夹
+If( Source_Dir == 0,
+	Create Directory( Source_Path )
+);
+	
+mfi = Multiple File Import();
+//设置导入目录
+mfi << Set Folder(Source_Path);
+//设置导入的编码为中文字体
+mfi<<Set Charset( "gb2312" );
+//导入文件名
+mfi<<Set Add File Name Column( 1 );
+//批量导入
+mfi << Import Data();
+
+);
+
+// 判断导入的数据表
+Get_Datatable = Expr(
+// 获取表数量
+Tables_Num = N Table();
+
+// 判断合并后数据是否一致
+// 如果不一致就停止脚本运行
+If( Tables_Num > 1,
+	win = New Window( "错误提示",
+		<<Modal,
+		Text Box( "请检查原始数据\!n合并文件后产生多个表\!n原始数据格式不一致" ),
+		Button Box( "OK" ));
+	Stop();
+);
+
+dt = Current Data Table();
+
+//判断有没有活动表,如果没有停止运行.
+If( Is Empty( dt ),
+	win = New Window( "错误提示", 
+		<<Modal, 
+		Text Box( "桌面 JMP 文件夹为空\!n请检查文件" ), 
+		Button Box( "OK" ) );
+	Stop();
+);
+
+//更改表名
+dt << Set Name("Source_Data");
+
+);
+
+Get_Values = Expr(
+// 获取阶段的值
+Build_Box_Value = Build_Box << Get Text();
+
+// 获取客户、机种、MB 厂商
+Product_Model = Word( 1, :机种型号[1] );
+Custom_Name = Word( 2, :机种型号[1] );
+MB_Vendor = Word( 3, :机种型号[1] );
+
+//删除第一和第二列
+dt << Delete Columns(1,2);
+
+// 新建 4 列
+For( i = 1, i <= 4, i++,
+	New Column( Char( i ), character )
+);
+
+//重命名列名称
+NewCols = {"MB_SN", "ATTACH_DATE", "ATTACH_LINE", "TOOL_CODE",
+    "FIXTURE_CODE","BR_TOOL","SR_TOOL","SP_TOOL",
+    "RACK","OVEN","AOI_ID","JRS_ID","PACK_ID",
+    "GLUE_BATCH","GLUE_TYPE","BUILD_STAGE","REMARKS"
+};
+
+For( i = 1, i <= N Items( NewCols ), i++,
+ Column( dt, i ) << set name( NewCols[i] )
+);
+// 胶水型号赋值
+dt:GLUE_BATCH << Set Each Value("9088");
+dt:BUILD_STAGE << Set Each Value(Build_Box_Value);
+
+
+// 处理空格键
+// 获取空格键的值
+SPValue = dt:SP_TOOL << Get Values;
+// 如果空格键为空删除整列
+If( Is Missing( SPValue[1] ),
+	dt << Delete Columns( "SP_TOOL" )
+);
+// 如果机种是 RLK 删除空格
+If( Substr( dt:PACK_ID[1], 1, 3 ) == "RLK",
+	dt << Delete Columns( "SP_TOOL" )
+);
+
+// 匹配重复的 SN 并删除行
+dt << Select Duplicate Rows( Match( Column( "MB_SN" )) ) << Delete Rows;
+
+// 获取粘贴日期
+Att_Date = dt:ATTACH_DATE << Get as Matrix;
+// 新建一列 Date
+Date_Col = New Column( "Date", numeric, Format( "y/m/d" ) );
+Date_Col << Set Values( Att_Date ) << Data Type( Character, "Nominal" );
+
+//打开胶水记录
+dt_Glue = Open(Glue_Path,Invisible);
+
+// 更新胶水记录并关闭
+dt << Update(
+    With( dt_Glue ),
+    Match Columns( :Date = :Date )
+);
+Close(dt_Glue,No Save);
+//删除最后一列 Data
+dt << Delete Columns("Date");
+
+// 替换 Ai7 为 A17
+Local( {dt = data table("Source_Data")},
+	dt << Begin Data Update;
+	For Each( {col},
+		dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		For Each Row( dt, col[] = Substitute( col[], "AI7", "A17", <<IGNORECASE ) )
+	);
+	dt << End Data Update;
+);
+
+// 删除数据表多余的脚本
+Script_list = dt << Get Table Script Names;
+dt << Delete Scripts( Script_list );
+
+// 判断是否为精元客户 正则替换粘贴日期为 2024/01/11
+If( Custom_Name == "Sunrex", 
+	pattern = Pat Regex( "^\S{10}|^\S{9}|^\S{8}" );
+	For Each Row(
+		dt,
+		:ATTACH_DATE = Regex(
+			:ATTACH_DATE,
+			pattern,
+			"2024/01/11", 
+			//Abbrev Date(Today()-3*24*3600),
+			GLOBALREPLACE,
+			IGNORECASE
+		)
+	);
+);
+
+);
+
+Save_Datatable = Expr(
+
+// 获取日期值
+Date_Box_Value = Date_Box << Get Text();
+// 获取总行数
+TotalRows = N Rows();
+
+// 保存为桌面
+If( Custom_Name == "Wistron", 
+	dt << Save As( Excel_Path || "纬创" ||Product_Model || " " || Build_Box_Value || " " || Date_Box_Value || " " || MB_Vendor ||" Qty"||Char(TotalRows)||" pcs V1.0.xlsx"),
+	dt << Save As( Excel_Path || Product_Model || " " || Build_Box_Value || " " || Date_Box_Value || " " || MB_Vendor ||" Qty"||Char(TotalRows)||" pcs V1.0.xlsx"),
+);
+// 获取文件目录 并删除文件
+Files = Files In Directory( Source_Path);
+
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( Source_Path || Files[i] )
+	);
+);
+
+
+);
+
+// 汇总统计数据
+Summary_Data = Expr(
+	// 获取总列数
+	Col_Num = Length(dt << Get Column Names);
+	
+	Pack_List = {"机种","客户","MB厂商","空格键"};
+	// 新建三列存放信息
+	For(i = 1,i <= 4,i++,
+		New Column(Pack_List[i],Character),
+	);
+	
+	// 赋值
+	For Each Row(dt:机种 = Items(dt:PACK_ID," ")[1]);
+	For Each Row(dt:客户 = Items(dt:PACK_ID," ")[2]);
+	For Each Row(dt:MB厂商 = Items(dt:PACK_ID," ")[3]);
+	
+	
+	// 判断空格
+	If(  Col_Num  == 17,
+		For Each Row( dt:空格键 = Substr( dt:SP_TOOL, 8, 3 ) ),
+		For Each Row( dt:空格键 = "无空格键" )
+	);
+	// 处理模具信息
+	For Each Row( dt:TOOL_CODE = Substr( dt:TOOL_CODE, 6, 3 ) || "-" || Right( dt:TOOL_CODE, 3 ) );
+	
+	// 转换粘贴日期为字符串
+	dt:ATTACH_DATE << Data Type(numeric,Format( "y/m/d"));
+	dt:ATTACH_DATE << Data Type(Character);
+	
+	
+);
+
+Sum_Data = Expr(
+ //制作数据表
+	TB = dt << Tabulate(
+		Show Control Panel( 0 ),
+		Add Table(
+			
+			Row Table( Grouping Columns( :ATTACH_DATE ),Add Aggregate Statistics( :ATTACH_DATE )),
+			Row Table( Grouping Columns( :ATTACH_LINE ),Add Aggregate Statistics( :ATTACH_LINE )),
+			Row Table(Grouping Columns( :TOOL_CODE ),Add Aggregate Statistics( :TOOL_CODE )),
+			Row Table( Grouping Columns( :空格键 ),Add Aggregate Statistics( :空格键)),
+			Row Table( Grouping Columns( :机种 ),Add Aggregate Statistics( :机种 )),
+			Row Table( Grouping Columns( :客户 ),Add Aggregate Statistics( :客户 )),
+			Row Table( Grouping Columns( :MB厂商 ), Add Aggregate Statistics( :MB厂商 )),
+			Row Table(Grouping Columns( :BUILD_STAGE ), Add Aggregate Statistics( :BUILD_STAGE )),
+
+		)
+	);
+
+	If(Custom_Name == "LLitech",
+		TB2 = dt << Tabulate(
+			Show Control Panel( 0 ),
+			Add Table( Row Table( Grouping Columns( :TOOL_CODE, :ATTACH_DATE ), Add Aggregate Statistics( :TOOL_CODE ) ) )
+		);
+		TB2 << Move window( 900, 300 );
+	);
+	
+	TB << Move window( 1600, 100 );
+	
+	
+);
+
+
+
+// 清洗数据(包装2)
+Run_Script = Expr(
+
+	Import_Files;
+	Get_Datatable;
+	Get_Values;
+	Save_Datatable;
+	Summary_Data;
+	Sum_Data;
+	
+);
+
+// 清洗数据(包装1)
+Run_Script2 = Expr(
+
+	Import_Files_Name;
+	Get_Datatable;
+	dt = Current Data Table();
+	// 处理模具信息
+	
+	col6 = Column (6);
+	col8 = Column (8);
+	Col9 = Column (9);
+	dt:col6 << Data Type(Character,"Nominal");
+	For Each Row(dt:col6 = Substr( dt:col8, 3, 8 ) || " "  || Substr( dt:col9, 3, 8 ));
+	// 处理箱号
+	col15 = Column name(15);
+	For Each Row(dt:col15 =Items(dt:col15,".")[1]);
+	Get_Values;
+	Save_Datatable;
+	
+);
+
+// 合并数据
+Run_Script3 = Expr(
+	Import_Files;
+	Get_Datatable;
+	
+	//匹配重复的 SN 并删除行
+	dt << Select Duplicate Rows( Match( Column( "MB_SN" )) ) << Delete Rows;
+	// 获取总行数
+	TotalRows = N Rows();
+	
+	Date_Box_Value = Date_Box << Get Text();
+	
+	Product_Model_Pack = Item(1,dt:PACK_ID[1]);
+	Custom_Name_Pack = Item(2,dt:PACK_ID[1]);
+	MB_Vendor_Pack = Item(3,dt:PACK_ID[1]);
+	Build_Value = dt:BUILD_STAGE[1];
+	
+	//格式化 attachedate 为 年/月/日 时/分/秒
+	Column( "ATTACH_DATE")<< Data Type(numeric,Format( "y/m/d h:m:s"));
+	
+	
+	// 保存为桌面
+	If( Custom_Name_Pack == "Wistron", 
+		dt << Save As( Excel_Path || "纬创" ||Product_Model_Pack || " " || Build_Value || " " || Date_Box_Value || " " || MB_Vendor_Pack ||" Qty"||Char(TotalRows)||" pcs V1.0.xlsx"),
+		dt << Save As( Excel_Path || Product_Model_Pack || " " || Build_Value || " " || Date_Box_Value || " " || MB_Vendor_Pack ||" Qty"||Char(TotalRows)||" pcs V1.0.xlsx"),
+	);
+	// 删除数据表多余的脚本
+	Script_list = dt << Get Table Script Names;
+	dt << Delete Scripts( Script_list );
+	
+	Summary_Data;
+	Sum_Data;
+	// 获取文件目录 并删除文件
+	Files = Files In Directory( Source_Path);
+
+	If( Files != {},
+		For( i = 1, i <= N Items( Files ), i++,
+			Delete File( Source_Path || Files[i] )
+		);
+	);
+);
+
+// 纬创备品
+Run_Script4 = Expr(
+	
+	Import_Files;
+	Get_Datatable;
+	Get_Values;
+	
+	//匹配重复的 SN 并删除行
+	dt << Select Duplicate Rows( Match( Column( "MB_SN" )) ) << Delete Rows;
+	// 获取总行数
+	TotalRows = N Rows();
+	
+	dt << Save As( "$Desktop\" || Char( Long Date( Today() ) ) || "-" || Char( TotalRows ) || " pcs 备品.xlsx" );
+	
+	Pack_ListValue = dt:PACK_ID << Get Values;
+	Pack_List_Arr = Associative Array( Pack_ListValue );
+	Pack_list = Pack_List_Arr << Get Keys;
+	
+	Subsetdri = Is Directory("$Desktop\Subset");
+	//如果没有就创建一个 Subset 文件夹
+	If( Subsetdri == 0,Create Directory( "$Desktop\Subset" ));
+
+	For( i = 1, i <= N Items( Pack_list ), i++,
+		dt << Select Where( dt:PACK_ID == Pack_list[i] ); 
+		rows = dt << Get Selected Rows();
+		If( N Items( rows ) > 0,
+			tempdt = dt << Data View
+		);
+		Try( tempdt << Save( "$desktop/Subset/纬创 " || Char( Pack_list[i] ) || " 备品.xlsx" ) );
+		Close( tempdt, NoSave );
+	);
+
+	Summary_Data;
+	Sum_Data;
+	// 获取文件目录 并删除文件
+	Files = Files In Directory( Source_Path);
+
+	If( Files != {},
+		For( i = 1, i <= N Items( Files ), i++,
+			Delete File( Source_Path || Files[i] )
+		);
+	);
+	
+);
