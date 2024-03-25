@@ -182,12 +182,11 @@ Date_Col = New Column( "Date", numeric, Format( "y/m/d" ) );
 Date_Col << Set Values( Att_Date ) << Data Type( Character, "Nominal" );
 
 //打开胶水记录
-dt_Glue = Try(Open(Glue_Path,Invisible),
-	win = New Window( "错误提示",
-	<<Modal,
-	Text Box( "请检查 Glue.jmp 文件\!n桌面未找到此文件！" ),
-	Button Box( "OK" ));
-	Stop(););
+If( File Exists( Glue_Path ) == 1,
+	dt_Glue = Open( Glue_Path, Invisible ),
+	win = New Window( "错误提示", <<Modal, Text Box( "请检查 Glue.jmp 文件\!n桌面未找到胶水记录文件！" ), Button Box( "OK" ) );
+	Stop();
+);
 
 // 更新胶水记录并关闭
 dt << Update(
