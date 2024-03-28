@@ -229,6 +229,20 @@ If( Custom_Name == "Sunrex",
 
 );
 
+
+// 获取文件目录 并删除文件
+Delete_Files = Expr(
+
+Files = Files In Directory( Source_Path);
+
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( Source_Path || Files[i] )
+	);
+);
+
+);
+
 Save_Datatable = Expr(
 
 // 获取日期值
@@ -241,14 +255,8 @@ If( Custom_Name == "Wistron",
 	dt << Save As( Excel_Path || "纬创" ||Product_Model || " " || Build_Box_Value || " " || Date_Box_Value || " " || MB_Vendor ||" Qty"||Char(TotalRows)||" pcs V1.0.xlsx"),
 	dt << Save As( Excel_Path || Product_Model || " " || Build_Box_Value || " " || Date_Box_Value || " " || MB_Vendor ||" Qty"||Char(TotalRows)||" pcs V1.0.xlsx"),
 );
-// 获取文件目录 并删除文件
-Files = Files In Directory( Source_Path);
 
-If( Files != {},
-	For( i = 1, i <= N Items( Files ), i++,
-		Delete File( Source_Path || Files[i] )
-	);
-);
+Delete_Files;
 
 
 );
@@ -336,7 +344,7 @@ Run_Script2 = Expr(
 	Import_Files_Name;
 	Get_Datatable;
 	dt = Current Data Table();
-	
+	// 判断数据表是不是包装1的
 	If(N Cols(dt) > 15,
 		win = New Window( "错误提示", <<Modal, Text Box( "原始数据不是包装1\!n请检查！" ), Button Box( "OK" ) );
 		Stop();	
@@ -389,14 +397,7 @@ Run_Script3 = Expr(
 	
 	Summary_Data;
 	Sum_Data;
-	// 获取文件目录 并删除文件
-	Files = Files In Directory( Source_Path);
-
-	If( Files != {},
-		For( i = 1, i <= N Items( Files ), i++,
-			Delete File( Source_Path || Files[i] )
-		);
-	);
+	Delete_Files;
 );
 
 // 纬创备品
@@ -433,13 +434,5 @@ Run_Script4 = Expr(
 
 	Summary_Data;
 	Sum_Data;
-	// 获取文件目录 并删除文件
-	Files = Files In Directory( Source_Path);
-
-	If( Files != {},
-		For( i = 1, i <= N Items( Files ), i++,
-			Delete File( Source_Path || Files[i] )
-		);
-	);
-	
+	Delete_Files;
 );
