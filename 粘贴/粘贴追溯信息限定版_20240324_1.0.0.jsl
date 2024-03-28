@@ -336,6 +336,12 @@ Run_Script2 = Expr(
 	Import_Files_Name;
 	Get_Datatable;
 	dt = Current Data Table();
+	
+	If(N Cols(dt) > 15,
+		win = New Window( "错误提示", <<Modal, Text Box( "原始数据不是包装1\!n请检查！" ), Button Box( "OK" ) );
+		Stop();	
+	);
+	
 	// 处理模具信息
 	
 	col6 = Column (6);
