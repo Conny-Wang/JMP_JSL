@@ -1,0 +1,248 @@
+﻿fdt = current data table();
+
+fdt << Minimize Window;
+fd = fdt << Data Filter(
+	Location( {600, 100} ),
+	Conditional,
+	Add Filter(
+		columns( :customer, :Test Date, :Test Time ),
+		Where( :customer == "LL" ),
+		Display( :customer, Size( 160, 30 ), List Display ),
+		Display( :Test Date, Size( 160, 60 ), List Display ),
+		Display( :Test Time, Size( 160, 180 ), List Display )
+	)
+);
+NW1 = New window("Select Date",bx = button box("select Date Data"));
+NW1 << Move window(880,200);
+fd << Bring Window To Front;
+NW1 << Bring Window To Front;
+bx << Set Script(
+NW1 << close window;
+dt1 = fdt << data view;
+fd <<close;
+dt1 << Clear;
+dt1 << Sort(By(:Test Date, :Test Time),Replace table);
+row = N rows(dt1);
+date1 = column("Test Date")[1];
+date2 = column("Test Date")[row];
+time1 = column("Test Time")[1];
+time2 = column("Test Time")[row];
+if(date1 == date2,
+	date = concat("20",substr(date1,2,6));
+	date1!=date2,
+	date = concat("20",substr(date1,2,6),"-","20",substr(date2,2,6))
+		
+	);
+if(time1 == time2,
+	time = substr(time1,1,3);
+	time1!=time2,
+	time = concat(substr(time1,1,3),"-",substr(time2,1,3))
+		
+	);
+	
+if( date1 == date2 ,
+	file_path = concat("$Desktop\LL upload data\LL Dome attach IPQC data ",date," ",time,".jmp"),
+	date1 != date2 ,
+	file_path = concat("$Desktop\LL upload data\LL Dome attach IPQC data ",concat("20",substr(date1,2,6))," ",substr(time1,1,3),"-",concat("20",substr(date2,2,6))," ",substr(time2,1,3),".jmp")
+	);
+
+dt1 << save(file_path);
+
+close(dt1,nosave);
+
+dt = open(file_path);
+
+
+dt << select columns("Vendor","Line No.","customer","stage","Large Tool","Small Tool","MB vendor","Assy","data type","Test Date","Test Time",
+	"SN","Key NO.","KEY Name","Key_Type","Key_Size","Dome Size","Peak Force","Peak Travel","Bottom Force","Bottom Travel","Click Ratio","160g-Travel",
+	"Make  Force","Make Travel","160T-PT","PF-MF","MT-PT","MFaverage_1x1");
+dt << Invert Column Selection;
+dt << delete columns();
+:"160T-PT" << Add Column Properties( Formula( Round( :Name("160g-Travel") - :Peak Travel, 4 ) ) );
+:"PF-MF" << Add Column Properties( Formula( Round( :Peak Force - :Make  Force, 4 ) ) );
+:"MT-PT" << Add Column Properties( Formula( Round( :Make Travel - :Peak Travel, 4 ) ) );
+dt << select where(:SN == "");
+dt << delete rows;
+close(fdt,nosave);
+
+
+dt=current data table();
+dt << select where(:MFaverage_1x1 >= 33.5 & :MFaverage_1x1 < 34 );
+sel_rows_matrix = dt << Get Selected Rows();
+sel_rows = length(sel_rows_matrix);
+if( sel_rows > 0,
+	MFave_low_data = dt << data view;
+	Low_data_summary = MFave_low_data << summary(Group(:SN,:Key NO.,:Key_Size,:Make  Force,:Name("PF-MF"),:MFaverage_1x1),Link to original data table(0),output table("MFaverage_1x1 Low data"));
+	close(MFave_low_data,Nosave);
+	current data table(Low_data_summary);
+	Low_data_summary << select where(:Key_Size != "1x1");
+	Low_data_summary << delete rows;
+	Low_data_summary << New column("MF",formula(
+		if( :Make  Force < 60 & :Name("PF-MF") > 3,
+			:Make  Force + 0.8,
+			:Make  Force
+		)
+	));
+	Low_data_summary << New column("MFave",formula( round(col mean(:MF,:SN),4 )));
+	Low_data_summary:MF << delete formula;
+	Low_data_summary:MFave << delete formula;
+	Low_data_summary << delete columns("Make  Force","MFaverage_1x1","Key_Size","N Rows","PF-MF");
+	Low_data_summary:MF << Set name("Make  Force");
+	Low_data_summary:MFave << Set name("MFaverage_1x1");
+	MFave_data = Low_data_summary << summary(Group(:SN),mean(:MFaverage_1x1),Link to original data table(0),output table("MFave data"));
+	MFave_data << New column("MFaverage_1x1",formula(round(:Name("均值(MFaverage_1x1)"),4)));
+	MFave_data:MFaverage_1x1 << delete formula;
+	MFave_data << delete columns("N Rows","均值(MFaverage_1x1)");
+	Low_data_summary << delete columns("MFaverage_1x1");
+	dt = dt << update(with(data table(Low_data_summary)),Match Columns(:SN = :SN,:Key NO. = :Key NO.));
+	dt = dt << update(with(data table(MFave_data)),Match Columns(:SN = :SN ));
+	dt << clear select();
+	close(Low_data_summary,Nosave);
+	close(MFave_data,Nosave);
+);
+
+Result;
+
+If(
+	N Table() > 1,Stop();
+);
+
+
+Script_lists = dt << Get Table Script Names;
+dt << Delete Table Property( Script_lists );
+dt << Bring Window To Front;
+dt << Maximize Window;
+dt << clear;
+dt << Clear Column Selection();
+dt << Compress File When Saved( 1 );
+
+// 删除公式列
+For( i = 26, i <= 28, i++,
+	Column( dt, i ) << Get Formula << Delete Formula
+);
+
+dt << save;
+Close(dt);
+
+);
+
+// 判断规格
+
+Result = Expr(
+
+	dt = Current Data Table();
+	// 大 Dome
+	dt_pfl = dt << Select  where( (:Dome Size == "Large" & (:Peak Force > 71 | :Peak Force < 53)) ) << Data View;
+	If( dt_pfl != Empty(),
+		dt_pfl << Set Name( "PF大Dome_超规格" )
+	);
+	
+	dt_ptl = dt << Select  where( (:Dome Size == "Large" & (:Peak Travel > 0.42 | :Peak Travel < 0.26)) ) << Data View;
+	If( dt_ptl != Empty(),
+		dt_ptl << Set Name( "PT大Dome_超规格" )
+	);
+	
+	dt_bfl = dt << Select  where( (:Dome Size == "Large" & (:Bottom Force > 38 | :Bottom Force < 20)) ) << Data View;
+	If( dt_bfl != Empty(),
+		dt_bfl << Set Name( "BF大Dome_超规格" )
+	);
+	
+	dt_btl = dt << Select  where( (:Dome Size == "Large" & (:Bottom Travel > 0.69 | :Bottom Travel < 0.49)) ) << Data View;
+	If( dt_btl != Empty(),
+		dt_btl << Set Name( "BT大Dome_超规格" )
+	);
+
+	dt_crl = dt << Select  where( (:Dome Size == "Large" & (:Click Ratio > 65 | :Click Ratio < 47)) ) << Data View;
+	If( dt_crl != Empty(),
+		dt_crl << Set Name( "CR大Dome_超规格" )
+	);
+	
+	dt_160l = dt << Select  where( (:Dome Size == "Large" & (:"160g-Travel"n > 1 | :"160g-Travel"n < 0.83)) ) << Data View;
+	If( dt_160l != Empty(),
+		dt_160l << Set Name( "160T大Dome_超规格" )
+	);
+	
+	dt_mfl = dt << Select  where( (:Dome Size == "Large" & (:Make  Force > 61 | :Make  Force < 27)) ) << Data View;
+	If( dt_mfl != Empty(),
+		dt_mfl << Set Name( "MF大Dome_超规格" )
+	);
+	
+	dt_160ttl = dt << Select  where( (:Dome Size == "Large" & (:"160T-PT"n > 0.65 | :"160T-PT"n < 0.51)) ) << Data View;
+	If( dt_160ttl != Empty(),
+		dt_160ttl << Set Name( "160T-PT大Dome_超规格" )
+	);
+	
+	dt_pfmfl = dt << Select  where( (:Dome Size == "Large" & (:"PF-MF"n > 33 | :"PF-MF"n < 2)) ) << Data View;
+	If( dt_pfmfl != Empty(),
+		dt_pfmfl << Set Name( "PF-MF大Dome_超规格" )
+	);
+	
+	dt_mtptl = dt << Select  where( (:Dome Size == "Large" & (:"MT-PT"n > 0.48 | :"MT-PT"n < 0.32)) ) << Data View;
+	If( dt_mtptl != Empty(),
+		dt_mtptl << Set Name( "MT-PT大Dome_超规格" )
+	);
+	
+	dt_pfp = dt << Select  where( (:Key_Type == "P" & (:Peak Force > 69 | :Peak Force < 53)) ) << Data View;
+	If( dt_pfp != Empty(),
+		dt_pfp << Set Name( "Type P PF_超规格" )
+	);
+	
+	dt_crp = dt << Select  where( (:Key_Type == "P" & (:Click Ratio > 61 | :Click Ratio < 47)) ) << Data View;
+	If( dt_crp != Empty(),
+		dt_crp << Set Name( "Type P CR_超规格" )
+	);
+	
+	// 小 Dome
+	
+	dt_pfs = dt << Select  where( (:Dome Size == "Small" & (:Peak Force > 70 | :Peak Force < 52)) ) << Data View;
+	If( dt_pfs != Empty(),
+		dt_pfs << Set Name( "PF小Dome_超规格" )
+	);
+	
+	dt_pts = dt << Select  where( (:Dome Size == "Small" & (:Peak Travel > 0.47 | :Peak Travel < 0.29)) ) << Data View;
+	If( dt_pts != Empty(),
+		dt_pts << Set Name( "PT小Dome_超规格" )
+	);
+	
+	dt_bfs = dt << Select  where( (:Dome Size == "Small" & (:Bottom Force > 38 | :Bottom Force < 20)) ) << Data View;
+	If( dt_bfs != Empty(),
+		dt_bfs << Set Name( "BF小Dome_超规格" )
+	);
+	
+	dt_bts = dt << Select  where( (:Dome Size == "Small" & (:Bottom Travel > 0.79 | :Bottom Travel < 0.51)) ) << Data View;
+	If( dt_bts != Empty(),
+		dt_bts << Set Name( "BT小Dome_超规格" )
+	);
+
+	dt_crs = dt << Select  where( (:Dome Size == "Small" & (:Click Ratio > 64 | :Click Ratio < 48)) ) << Data View;
+	If( dt_crs != Empty(),
+		dt_crs << Set Name( "CR小Dome_超规格" )
+	);
+	
+	dt_160s = dt << Select  where( (:Dome Size == "Small" & (:"160g-Travel"n > 1.21 | :"160g-Travel"n < 1.03)) ) << Data View;
+	If( dt_160s != Empty(),
+		dt_160s << Set Name( "160T小Dome_超规格" )
+	);
+	
+	dt_mfs = dt << Select  where( (:Dome Size == "Small" & (:Make  Force > 58 | :Make  Force < 24)) ) << Data View;
+	If( dt_mfs != Empty(),
+		dt_mfs << Set Name( "MF小Dome_超规格" )
+	);
+	
+	dt_160tts = dt << Select  where( (:Dome Size == "Small" & (:"160T-PT"n > 0.82 | :"160T-PT"n < 0.66)) ) << Data View;
+	If( dt_160tts != Empty(),
+		dt_160tts << Set Name( "160T-PT小Dome_超规格" )
+	);
+	
+	dt_pfmfs = dt << Select  where( (:Dome Size == "Small" & (:"PF-MF"n > 37 | :"PF-MF"n < 5)) ) << Data View;
+	If( dt_pfmfs != Empty(),
+		dt_pfmfs << Set Name( "PF-MF小Dome_超规格" )
+	);
+	
+	dt_mtpts = dt << Select  where( (:Dome Size == "Small" & (:"MT-PT"n > 0.56 | :"MT-PT"n < 0.33)) ) << Data View;
+	If( dt_mtpts != Empty(),
+		dt_mtpts << Set Name( "MT-PT小Dome_超规格" )
+	);
+	
+	
+);
