@@ -415,13 +415,14 @@ Run_Script4 = Expr(
 	dt << Select Duplicate Rows( Match( Column( "MB_SN" )) ) << Delete Rows;
 	// 获取总行数
 	TotalRows = N Rows();
+	dt:Remarks << Set Each Value("备品");
+	
 	
 	dt << Save As( "$Desktop\" || Char( Long Date( Today() ) ) || "-" || Char( TotalRows ) || " pcs 备品.xlsx" );
 	
 	Pack_ListValue = dt:PACK_ID << Get Values;
 	Pack_List_Arr = Associative Array( Pack_ListValue );
 	Pack_list = Pack_List_Arr << Get Keys;
-	dt:Remarks << Set Each Value("备品");
 	
 	Subsetdri = Is Directory("$Desktop\Subset");
 	//如果没有就创建一个 Subset 文件夹
@@ -433,7 +434,7 @@ Run_Script4 = Expr(
 		If( N Items( rows ) > 0,
 			tempdt = dt << Data View
 		);
-		Try( tempdt << Save( "$desktop/Subset/纬创 " || Char( Pack_list[i] ) || " 备品.xlsx" ) );
+		Try( tempdt << Save( "$desktop/Subset/" || Char( Pack_list[i] ) || " 备品.xlsx" ) );
 		Close( tempdt, NoSave );
 	);
 
