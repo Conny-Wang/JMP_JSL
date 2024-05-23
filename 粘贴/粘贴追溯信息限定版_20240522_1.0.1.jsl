@@ -58,7 +58,7 @@ D_Box << Set Font Name( "幼圆" );
 // 把 Box 追加到窗口
 nw << Append( box_info );
 // 设置窗体大小和显示位置
-nw << set window size( 250, 500 ) << Move window( 1600, 100 );
+nw << set window size( 250, 500 ) << Move window( 1400, 300 );
 
 // 批量导入文件
 Import_Files = Expr(
@@ -434,7 +434,7 @@ Run_Script4 = Expr(
 		If( N Items( rows ) > 0,
 			tempdt = dt << Data View
 		);
-		Try( tempdt << Save( "$desktop/Subset/" || Char( Pack_list[i] ) || " 备品.xlsx" ) );
+		Try( tempdt << Save( "$desktop/Subset/纬创 " || Char( Pack_list[i] ) || " 备品.xlsx" ) );
 		Close( tempdt, NoSave );
 	);
 
