@@ -1,0 +1,462 @@
+﻿//!
+// 2024/06/26 更新 新增 FP-BF 规格
+
+Names Default To Here(1);
+
+NW = Expr(
+
+	New Window( "Non A OQC Force", //窗体名称
+		Outline Box( "OQC Dome Force", //分级菜单栏名称
+			V List Box( //垂直排列显示框
+				H List Box( Text Box( "机种名称	:    " ), Assy_Box = Text Edit Box( "V210861AEU", <<Set Width( 100 ) ) ), // 机种名称
+				H List Box( Text Box( "测试日期	:    " ), Test_Date_Box = Text Edit Box( "D24", <<Set Width( 100 ) ) ), // Dome 测试日期
+				H List Box( Text Box( "测试时间	:    " ), Test_Time_Box = Text Edit Box( "T", <<Set Width( 100 ) ) ),   // Dome 测试时间
+				H List Box( Text Box( "MB  周期 :   " ), MBDC_Box = Text Edit Box( "24", <<Set Width( 100 ) ) ),   // MB 周期
+				H List Box( Text Box( "线体编号	:    " ), Line_Box = Text Edit Box( "Line01", <<Set Width( 100 ) ) ),    // 粘贴线体
+				H List Box( Text Box( "产品片数	:    " ), Num_Box = Text Edit Box( 5, <<Set Width( 100 ) ) )    // 产品片数
+			), 
+			
+			Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+			
+			//点击按钮可以运行对应的脚本
+			Button Box( "生成 Force 报表", Import_Data ), 
+			
+			Button Box( "重新判断", Dome_Result ), 
+			// 保存报表
+			Button Box( "保存报表",Save_OQC_Force ),
+			
+			Spacer Box( size( 10, 20 ) ),//保持和其他显示框的间距
+			
+			// 脚本帮助说明
+			Button Box( "脚本帮助",Help_Info ),
+			
+		
+		), 
+
+	)
+);
+
+//设置窗体大小 移动窗体位置
+NW << Set Window Size( 260, 420 ) << Move window( 1600, 100 );
+
+
+Import_Data = Expr(
+	
+// 写入机种名称
+Assy_Value = Assy_Box << Get Text();
+// Dome 测试日期
+Test_Date = Test_Date_Box << Get Text();
+// Dome 测试时间
+Test_Time = Test_Time_Box << Get Text();
+// MB 周期
+MBDC = MBDC_Box << Get Text();
+// 粘贴线体
+Line = Line_Box << Get Text();
+// 产品片数
+NumP = Num_Box << Get Text();
+
+
+// 判断桌面是否有 JMP 文件
+	drijmp = Is Directory( "$Desktop\OQC_Data" );
+// 如果没有就创建一个 JMP 文件夹
+	If( drijmp == 0,
+		Create Directory( "$Desktop\OQC_Data" )
+	);
+//设置桌面 JMP 文件夹为默认目录
+	dri = Set Default Directory( "$Desktop\OQC_Data" );
+
+// 批量导入需要合并的文件，默认参数，JMP 自动推导，可手动配置参数。
+	mfi = Multiple File Import();
+// 设置导入目录
+	mfi << Set Folder( dri );
+//设置导入的编码为中文字体
+	mfi << Set Charset( "gb2312" );
+// 批量导入
+	mfi << Import Data();
+// 获取已经开的所有表数量
+	open_tables = N Table();
+// 判断数据是否合并为 1 个，如果不是说明数据格式一致。
+// 如果合并发现多余2个表弹窗提醒并停止下面代码继续执行。
+	If( open_tables > 1,
+		win = New Window( "错误提示", 
+		<<Modal, 
+		Text Box( "请检查数据\!r数据格式不一致" ), 
+		Button Box( "OK" ), );
+		Stop();
+	);
+// 导入后定义当前活动表为 datatable
+	dt = Current Data Table();
+// 判断有没有活动表,如果没有停止运行.
+	If( Is Empty( dt ),
+		win = New Window( "错误提示", 
+		<<Modal, 
+		Text Box( "桌面 OQC_Data 文件夹为空\!r请检查文件" ), 
+		Button Box( "OK" ) );
+		Stop();
+	);
+	
+dt = Current Data Table();
+// 改名
+dt << Set Name( "OQC_Data" );
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+// 删除不需要的行
+col1 = Column( 1 );
+dt:col1 << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt << Select Where( Is Missing( dt:col1 ) );
+dt << delete rows;
+
+// 删除多余的1-3列
+dt << Select columns( Column( 1 ), Column( 2 ), Column( 3 ),Column( 14 ),Column( 17 ) );
+dt << Delete Columns;
+
+// 修改列名称
+NewCols = {
+	"F1", "PT", "BF", "BT", "RPF", "RPT",
+	"F4", "RBT", "Click", "CR%", "160T","FP"
+};
+	
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	Column( dt, i ) << set name( NewCols[i] )
+);
+
+// 去除 * 号
+// 替换数据表中的全部
+Local( {dt = Data Table( "OQC_Data" )},
+	dt << Begin Data Update;
+	For Each( {col},
+		dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		For Each Row( dt, col[] = Substitute( col[], "*", " ", <<IGNORECASE ) )
+	);
+	dt << End Data Update;
+);
+
+// 所有列转换为数字列
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	cols = column(i);
+	dt:cols << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+);
+
+// 新建 6 列存放数据
+dt = Current Data Table();
+colsnum = 6;
+For( i = 1, i <= colsnum, i++,
+	New Column( Char( i ), Character, "Nominal",Set Selected )
+);
+
+// 新建一列数字列，用于存放 Key Number
+ dt << New Column( "7",Numeric,"Continuous");
+ 
+ // 新建一列数字列，用于存放 FP-F2 
+dt << New Column( "FP-BF", Numeric, "Continuous", Formula( :FP - :BF ) );
+ 
+// 移动 1-7 列到最前面
+dt << Move Selected Columns(
+	{:"1"n, :"2"n, :"3"n, :"4"n, :"5"n, :"6"n,:"7"n},
+	To First
+);
+
+	
+// 重命名列名称
+NewCols = {"Test Date", "Test Time", "MB DC", "Line No",
+    "Assy","Tool","Key No"
+};
+
+// 循环改列名
+For( i = 1, i <= N Items( NewCols ), i++,
+ Column( dt, i ) << set name( NewCols[i] )
+);
+
+// 写入机种名称
+dt:Assy << Set Each Value(Uppercase(Assy_Value));
+// 写入 Dome 测试日期
+dt:Test Date << Set Each Value(Test_Date);
+// 写入 Dome 测试时间
+dt:Test Time << Set Each Value(Test_Time);
+// 写入 MB 周期
+dt:MB DC << Set Each Value(MBDC);
+// 写入粘贴线体
+dt:Line No << Set Each Value(Line);
+if ( Is File("$Desktop/AssyInfo.jmp") == 0,
+		win = New Window( "错误提示",
+		<<Modal,
+		Text Box( "打开桌面机种对照表失败！\!n 请检查桌面 AssyInfo.jmp 文件！" ),
+		Button Box( "OK" ));
+		Stop();
+	);
+// 打开机种对照表
+Try( dtAssy = Open( "$Desktop/AssyInfo.jmp",invisible ));
+// 获取对应机种所在行
+Assy_Rows = dtAssy << Get Rows Where( :Assy == Uppercase(Assy_value) );
+// 获取模号信息
+tools = Repeat(dtAssy:Tool[Assy_Rows],Num(NumP));
+// 获取 Key Number 信息
+keys = Repeat(dtAssy:Key No[Assy_Rows],Num(NumP));
+// 关闭机种对照表
+Close( dtAssy, NoSave );
+// 数据写入表格
+dt:Tool << Set values(tools);
+dt:Key No << Set values(keys);
+
+// 清除列选择状态
+dt << Clear Column Selection();
+// 判断是否有空行，如果有说明原始数据和机种不匹配，提示信息
+If( Col N Missing( :Assy ) | Col N Missing( :Tool ) != 0,
+	win = New Window( "错误提示", <<Modal, 
+	Text Box( "请检查数据\!r机种错误和数据不匹配" ), 
+	Button Box( "OK" ));
+	Stop();
+);
+
+Dome_Result;
+
+);
+
+
+
+Save_OQC_Force = Expr(
+
+dt = Current Data Table();
+
+If( 
+	N Table() == 0, 
+	win = New Window( "错误提示",
+    <<Modal,
+    Text Box( "无数据表！\!n停止保存数据表！" ),
+    Button Box( "OK" ));
+	Stop();
+	);
+
+// 判断桌面是否有 JMP 文件
+	drijmp = Is Directory( "$Desktop\OQC_Data_JMP" );
+// 如果没有就创建一个 JMP 文件夹
+	If( drijmp == 0,
+		Create Directory( "$Desktop\OQC_Data_JMP" )
+	);
+	
+// 保存文件到桌面
+ dt << Save("$Desktop/OQC_Data_JMP/" || Uppercase(Assy_value) || " " || Line || " IPQC Force Data "|| Char(Test_Date)||" "||Substr(Test_Time,1,3)||".jmp");
+ Close All( Data Tables, NoSave );
+
+// 获取文件目录 并删除文件
+Files = Files In Directory( "$Desktop\OQC_Data" );
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( "$Desktop\OQC_Data\" || Files[i] )
+	);
+);
+
+Try(NW << Close Window;)
+
+);
+
+
+// 判断结果
+Dome_Result = Expr(
+
+dt = Data Table( "OQC_Data.jmp" );
+// 获取 F1 的最大值和最小值
+Summarize(Tool_List = By( dt:Tool ), F1_Max = Max( dt:F1 ));
+Summarize(Tool_List = By( dt:Tool ), F1_Min = MIN( dt:F1 ));
+// 获取 F4 的最小值
+Summarize(Tool_List = By( dt:Tool ), F4_Min = MIN( dt:F4 ));
+// 获取 CR 的最大值和最小值
+Summarize(Tool_List = By( dt:Tool ), CR_Max = Max( dt:CR% ));
+Summarize(Tool_List = By( dt:Tool ), CR_MIN = MIN( dt:CR% ));
+
+Try(OQC_Spec = Open("$Desktop/OQC_Spec.jmp",invisible),
+	win = New Window( "错误提示",
+    <<Modal,
+    Text Box( "打开桌面规格表失败！\!n请检查桌面 OQC_Spec.jmp 规格表！" ),
+    Button Box( "OK" ));
+    Stop();
+);
+
+// 定义一个矩阵来接收行数
+Spec_Rows = J(N Items( Tool_List ),1);
+
+For( i = 1, i <= N Items( Tool_List ), i++,
+	Spec_Rows[i] = OQC_Spec << Get Rows Where( OQC_Spec:tool == Tool_List[i] )
+);
+
+Result_Info = {};
+// 循环判断
+for (i = 1, i <= N Items( Tool_List ), i++,
+
+	if( F1_Min[i] < OQC_Spec:F1LSL[Spec_Rows[i]],
+		F1_Min_L = Tool_List[i] || " F1 Low 最小值：" || Char(F1_Min[i]) || "    规格下限：" || Char(OQC_Spec:F1LSL[Spec_Rows[i]]),
+		F1_Min_L = "其他 OK"
+	);
+	
+	if( F1_Max[i] > OQC_Spec:F1USL[Spec_Rows[i]],
+		F1_Max_H = Tool_List[i] || " F1 High 最大值：" || Char(F1_Max[i]) || "    规格上限：" || Char(OQC_Spec:F1USL[Spec_Rows[i]]),
+		F1_Max_H = "其他 OK"
+	);
+	
+	if( F4_Min[i] < OQC_Spec:F4LSL[Spec_Rows[i]],
+		F4_Min_L = Tool_List[i] || " F4 Low 最小值：" || Char(F4_Min[i]) || "    规格下限：" || Char(OQC_Spec:F4LSL[Spec_Rows[i]]),
+		F4_Min_L = "其他 OK"
+	);
+	
+	if( CR_Min[i] < OQC_Spec:CRLSL[Spec_Rows[i]],
+		CR_Min_L = Tool_List[i] || " CR Low 最小值：" || Char(CR_Min[i]) || "    规格下限：" || Char(OQC_Spec:CRLSL[Spec_Rows[i]]),
+		CR_Min_L = "其他 OK"
+	);
+	
+	if( CR_Max[i] > OQC_Spec:CRUSL[Spec_Rows[i]],
+		CR_Max_H = Tool_List[i] || " CR High 最大值：" || Char(CR_Max[i]) || "    规格上限：" || Char(OQC_Spec:CRUSL[Spec_Rows[i]]),
+		CR_Max_H = "其他 OK"
+	);
+	
+	
+	
+	//Show(F1_Min_L,F1_Max_H,F4_Min_L,CR_Min_L,CR_Max_H);
+	
+	// 数据存放到 List 中
+	Insert Into( Result_Info, F1_Min_L, -1 );
+	Insert Into( Result_Info, F1_Max_H, -1 );
+	Insert Into( Result_Info, F4_Min_L, -1 );
+	Insert Into( Result_Info, CR_Min_L, -1 );
+	Insert Into( Result_Info, CR_Max_H, -1 );
+	
+);
+// 去重复并排序
+Result_Info = Associative Array(Result_Info) << Get Keys;
+Result_Info = Sort List( Result_Info );
+
+
+
+// 遍历 List 获取文本
+Result_Items = "";
+For( i = 1, i <= N Items( Result_Info ), i++,
+	Result_Items = Result_Items || Result_Info[i] || "\!N"
+);
+
+// 获取 FP-BF 最大值
+FP_BF_Max = Col Max( dt:"FP-BF"n );
+
+If( FP_BF_Max > 15,
+	Result_Items = Result_Items || "FP-BF 超上限15g最大：" || Char( FP_BF_Max )
+);
+
+// 去除空行
+Result_Items = Trim(Result_Items);
+// 汇总输出
+NW = New Window( "汇总", T_Box = Text Box( Result_Items ) );
+
+// 设置字体加粗 字号 字体 颜色
+T_Box << Set Font Style("Bold");
+T_Box << Set Font Size( 11 );
+T_Box << Set Font Name( "幼圆" );
+//T_Box << Text Color( "Red" );
+T_Box << Background Color( "Red" );
+// 设置窗体大小
+NW  <<  Set Window Size( 400, 500 ) << Move Window( 800, 300 );
+
+// 关闭规格表
+Close( OQC_Spec, No Save );
+// 拉图形
+FGB;
+);
+
+// 测试结果
+//Dome_Result;
+
+
+// Dome 拉图
+
+FGB = Expr(
+// 获取模号信息
+Tool_List = Associative Array( :tool );
+Tool_First = (Tool_List << Get Contents)[1][1];
+
+ GB = Graph Builder(
+	Size( 1300, 700 ),
+	Data Table(dt ),
+	Show Control Panel( 0 ), // 关闭控制面板
+	Variables( Y( :F1 ), Y( :F4 ), Y( :CR% ), Wrap( :Tool ) ),
+	Elements(
+		Position( 1, 1 ),
+		Box Plot( Y, Legend( 64 ) ),
+		Caption Box( Y, Legend( 67 ), Summary Statistic( "Max" ) ),
+		Caption Box( Y, Legend( 68 ) ),
+		Caption Box( Y, Legend( 73 ), Summary Statistic( "Min" ) )
+	),
+	Elements(
+		Position( 1, 2 ),
+		Box Plot( Y, Legend( 65 ) ),
+		Caption Box( Y, Legend( 69 ), Summary Statistic( "Max" ) ),
+		Caption Box( Y, Legend( 71 ) ),
+		Caption Box( Y, Legend( 74 ), Summary Statistic( "Min" ) )
+	),
+	Elements(
+		Position( 1, 3 ),
+		Box Plot( Y, Legend( 66 ) ),
+		Caption Box( Y, Legend( 70 ), Summary Statistic( "Max" ) ),
+		Caption Box( Y, Legend( 72 ) ),
+		Caption Box( Y, Legend( 75 ), Summary Statistic( "Min" ) )
+	),
+	Local Data Filter(
+		Add Filter(
+			columns( :Tool ),
+			Where( :Tool == Tool_First ),
+			//Display( :Tool, N Items( 3 ) )
+		),
+		Animation( Animate Column( :Tool ), Animate Rate( 1 ) )
+	),
+	SendToReport( Dispatch( {}, "graph title", TextEditBox, {Set Text( "F1&F4&CR 图形" )} ) )
+);
+
+//最大化图形窗口，并设置为顶级窗口。
+ GB << Maximize Window;
+ GB << Bring Window To Front;
+ 
+);
+
+Help_Info = Expr(
+
+	
+	
+	Text_Info = "使用说明:
+	
+	桌面必须引用 2 个文件：
+	OQC_Spec.jmp 规格表文件
+	AssyInfo.jmp 机种对照表
+	如果误删文件 请去公共路径复制：\\192.168.0.245\品保课\JMP_JSL\OQC IPQC Force
+	
+	运行程序桌面会有 2 个文件夹
+	OQC_Data 文件夹存放 SE 测试机种原始数据
+	文件夹一次只能存放一个机种的数据
+	OQC_Data_JMP 文件夹里面是保存后的 JMP 数据 (测试数据没问题再进行保存)
+	
+	运行脚本
+	以下信息我们需要手动填写
+	机种名称：V210861AEU 需要和 AssyInfo.jmp 表里面的名称保持一致
+	测试日期：D240101 固定格式 写当天测试日期即可
+	测试时间：T08:00 固定格式 写当天测试时间即可
+	MB  周期：240101 固定格式 写 MB 上的周期即可
+	线体编号：Line01 固定格式 写生产线体即可
+	
+	检查填写信息无误后点击 《生成 Force 报表》按钮
+	即可自动运行 运行后会弹出图形和不良项目明细
+	
+	确认数据都是 OK 后点击
+	《保存报表》
+	按钮即可保存到桌面 OQC_Data_JMP 文件夹中
+	";
+	
+	Text_W = New Window( "帮助说明", H_Box = Text Box(Text_Info) );
+	
+	// 字体 大小 型号 粗细 颜色
+	H_Box << Set Font Size( 9 );
+	//H_Box << Set Font Name( "幼圆" );
+	H_Box << Set Font Style("Bold");
+	//H_Box << Text Color( "green" );
+	
+	Text_W  <<  Set Window Size( 500, 650 ) << Move Window( 650, 200 );
+	
+);
