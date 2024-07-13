@@ -1,0 +1,330 @@
+﻿//
+
+// 新增 ML 测试 JRS 脚本 2024/07/13
+
+
+// 运行脚本前清除所有 JMP 变量名称和值
+
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+
+// 引用路径明细
+// ML JRS 原始数据存放目录
+Dir_Source = "$Desktop/ML_JRS_Data";
+// 保存数据表目录
+Dir_Save = "$Desktop/ML_JRS_Data_JMP";
+// 信息对照表路径
+Source_Report = "$Desktop/MB+D IPQC report source.jmp";
+
+
+// 判断原始数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Dir_Source ) == 0,
+	Create Directory( "$Desktop/ML_JRS_Data" )
+);
+// 判断保存数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Dir_Save ) == 0,
+	Create Directory( "$Desktop/ML_JRS_Data_JMP" )
+);
+
+
+// 导入文件
+mfi = Multiple File Import(
+	<<Set Folder( Dir_Source ),
+	<<Set Charset( "gb2312" ),
+) << Import Data();
+
+// 设置当前表为活动表
+dt = Current Data Table();
+
+// 判断表是否为空
+If( Is Empty( dt ),
+	nw = New Window( "警告", 
+	<<Modal, 
+	Text Box( "桌面 ML_JRS_Data 文件夹空" ), 
+	Button Box( "OK" ) );
+	Stop();
+);
+
+//改表名
+dt << Set Name( "ML_JRS_Data" );
+//删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+// JRS 需要保留的列
+JRS_Col_Names = {"SN","Station_ID","Key_Number","Key_Name","Key_Type",
+	"Key_Size","Dome_Size","Peak_Force_gf","Peak_Travel_mm","Bottom_Force_gf",
+	"Bottom_Travel_mm","Click_Ratio_pct","Travel_160gf_mm"
+};
+
+dt << Select columns( JRS_Col_Names  );
+// 反转列并删除多余的数据
+dt << Invert Column Selection;
+dt << Delete Columns;
+
+// 新建 13 列
+For( i = 1, i <= 13, i++,
+	New Column( Char( i ), character )
+);
+// 移动 11 列到最前面
+dt << Move Selected Columns(
+	{:"1"n, :"2"n, :"3"n, :"4"n, :"5"n, 
+	:"6"n,:"7"n,:"8"n,:"9"n,:"10"n,:"11"n},
+	To First
+);
+
+// 重命名列
+ML_Col_Names = {"Vendor", "Line", "Customer", "Stage", "Large Tool",
+"Small Tool", "Assy", "Data Type", "Test Date", "Test Time",
+"Force Test Equipment", "SN", "Station_ID", "Key_Number", "Key_Name",
+"Key_Type", "Key_Size", "Dome_Size", "PF", "PT", "BF", "BT", "CR", "160T",
+"PFmean by lot", "lot"};
+
+For( i = 1, i <= N Items( ML_Col_Names ), i++,
+	Column( dt, i ) << set name( ML_Col_Names[i] )
+);
+
+// 获取文件名
+
+File_Name = Files In Directory(Dir_Source);
+File_Name_List = Items(File_Name[1],"-.");
+// 判断文件名是否是 8 位分割
+If( Length( File_Name_List ) != 8, 
+	nw = New Window( "警告", 
+	<<Modal, 
+	Text Box( "原始数据文件名错误，请检查！" ), 
+	Button Box( "OK" ) );
+	Stop();
+);
+
+// 厂商
+dt:Vendor << Set Formula("IRI");
+// 设备名称
+dt:Force Test Equipment << Set Formula("JRS");
+// 客户
+dt:Customer << Set Formula(File_Name_List[1]);
+// 机种
+dt:Assy << Set Formula(Uppercase(File_Name_List[2]));
+// 线体
+dt:Line << Set Formula(Uppercase(File_Name_List[3]));
+// 阶段
+dt:Stage << Set Formula(File_Name_List[4]);
+// 巡回状态
+dt:Data Type << Set Formula(Uppercase(File_Name_List[5]));
+// 巡回日期
+dt:Test Date << Set Formula(Uppercase(File_Name_List[6]));
+// 巡回时间
+Test_Time_Value = Uppercase(File_Name_List[7]);
+// 文件名巡回时间段
+Test_Time_List = {"X01","X02","X03","X04","X05","X06","X07","X08","X09","X10","X11","X12"};
+// 巡回时间段对照表
+Test_Time = {"T10:00","T12:00","T14:00","T16:00","T18:00","T20:00",
+	"T22:00","T24:00","T02:00","T04:00","T06:00","T08:00"
+};
+// 定位巡回时间段
+Test_Time_Num = Contains( Test_Time_List,Test_Time_Value,1);
+// 写入数据表
+dt:Test Time << Set Formula(Test_Time[Test_Time_Num]);
+
+// 设置 PF Mean 值和 Lot
+dt:PFmean by lot << Set Formula( Round( Col Mean( :PF, :Assy, :Line, :Test Date, :Test Time, :Dome_Size ), 4 ) );
+dt:lot << Set Formula( :Assy || :Line || :Test Date || :Test Time );
+
+// 打开 MB+D IPQC report source 信息对照表
+Try( dt1 = Open( Source_Report, Invisible ), 
+	nw = New Window( "警告", 
+	<<Modal, 
+	Text Box( "桌面 MB+D IPQC report source \!r 文件打开失败！请检查！" ), 
+	Button Box( "OK" ) );
+	Stop(); 
+);
+
+// 查找对应巡回的模号行数
+Info_Row = dt1 << Get Rows Where(
+	:Assy == Uppercase( File_Name_List[2] ) & 
+	:Line No. == Uppercase( File_Name_List[3] ) & 
+	:Test Date == Uppercase( File_Name_List[6] ) & 
+	:Test Time == Uppercase( Test_Time[Test_Time_Num] )
+);
+
+// 判断是否查找到对应的模号
+try(Info_Row[1],nw = New Window( "警告", 
+	<<Modal, 
+	Text Box( "生产信息表未查到对应的模号\!r请检查信息是否有误！" ), 
+	Button Box( "OK" ) );
+	Try(Close( dt1, NoSave));
+	Stop(); 
+);
+
+
+// 大 Dome 信息写入
+Large_Tool = dt1:Large Tool[Info_Row][1];
+dt:Large Tool<< Set Formula(Large_Tool);
+// 小 Dome 信息写入
+Small_Tool = dt1:Small Tool[Info_Row][1];
+dt:Small Tool<< Set Formula(Small_Tool);
+
+// 关闭 MB+D IPQC report source 信息对照表
+Try(Close( dt1, NoSave));
+
+// 删除表公式
+For( i = 1, i <= 11, i++,
+	Column( dt, ML_Col_Names[i] ) << Delete Formula
+);
+
+// 设置图形
+Force = Expr(
+	dt << Graph Builder(
+	Size( 1350, 650 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :Key_Number ),
+		Y( :PF ),
+		Y( :BF ),
+		Y( :CR ),
+		Overlay( :Dome_Size )
+	),
+	Elements(
+		Position( 1, 1 ),
+		Points( X, Y, Legend( 27 ) ),
+		Caption Box( X, Y, Legend( 32 ), Summary Statistic( "Max" ) ),
+		Caption Box( X, Y, Legend( 35 ), Summary Statistic( "Min" ) )
+	),
+	Elements(
+		Position( 1, 2 ),
+		Points( X, Y, Legend( 29 ) ),
+		Caption Box( X, Y, Legend( 33 ), Summary Statistic( "Max" ) ),
+		Caption Box( X, Y, Legend( 36 ), Summary Statistic( "Min" ) )
+	),
+	Elements(
+		Position( 1, 3 ),
+		Points( X, Y, Legend( 31 ) ),
+		Caption Box( X, Y, Legend( 34 ), Summary Statistic( "Max" ) ),
+		Caption Box( X, Y, Legend( 37 ), Summary Statistic( "Min" ) )
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"PF",
+			ScaleBox,
+			{Min( 48 ), Max( 75 ), Inc( 5 ), Minor Ticks( 1 ),
+			Add Ref Line( 51, "Dotted", "Blue", "Large LSL 51", 1 ),
+			Add Ref Line( 73, "Dotted", "Blue", "Large USL 73", 1 ),
+			Add Ref Line( 50, "Dotted", "Red", "Small LSL 50", 1 ),
+			Add Ref Line( 72, "Dotted", "Red", "Small USL 72", 1 ),
+			Label Row( Set Font Size( 9 ) )}
+		),
+		Dispatch(
+			{},
+			"BF",
+			ScaleBox,
+			{Min( 14 ), Max( 44 ), Inc( 5 ),
+			Minor Ticks( 1 ), Add Ref Line(15.5, "Dotted", "Blue", "Large/Small LSL 15.5", 1), 
+			Add Ref Line( 42.5, "Dotted", "Red", "Large/Small USL 42.5", 1 ),
+			Label Row( Set Font Size( 9 ) )}
+		),
+		Dispatch(
+			{},
+			"CR",
+			ScaleBox,
+			{Min( 40 ), Max( 65 ), Inc( 5 ),
+			Add Ref Line( 44, "Dotted", "Blue", "Large LSL 44", 1 ),
+			Add Ref Line( 64, "Dotted", "Blue", "Large USL 64", 1 ),
+			Add Ref Line( 42, "Dotted", "Red", "Small LSL 42", 1 ),
+			Add Ref Line( 62, "Dotted", "Red", "Small USL 62", 1 ),
+			Label Row( Set Font Size( 9 ) )}
+		),
+		Dispatch(
+			{},
+			"graph title",
+			TextEditBox,
+			{Set Text( "Force Distribution" )}
+		)
+	)
+);
+
+);
+
+Travel = Expr(
+	dt << Graph Builder(
+	Size( 1345, 650 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :Key_Number ),
+		Y( :PT ),
+		Y( :BT ),
+		Y( :"160T"n ),
+		Overlay( :Dome_Size )
+	),
+	Elements(
+		Position( 1, 1 ),
+		Points( X, Y, Legend( 20 ) ),
+		Caption Box( X, Y, Legend( 29 ), Summary Statistic( "Max" ) ),
+		Caption Box( X, Y, Legend( 32 ), Summary Statistic( "Min" ) )
+	),
+	Elements(
+		Position( 1, 2 ),
+		Points( X, Y, Legend( 22 ) ),
+		Caption Box( X, Y, Legend( 30 ), Summary Statistic( "Max" ) ),
+		Caption Box( X, Y, Legend( 33 ), Summary Statistic( "Min" ))
+	),
+	Elements(
+		Position( 1, 3 ),
+		Points( X, Y, Legend( 24 ) ),
+		Caption Box( X, Y, Legend( 31 ), Summary Statistic( "Max" ) ),
+		Caption Box( X, Y, Legend( 34 ), Summary Statistic( "Min" ) )
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"PT",
+			ScaleBox,
+			{Min( 0.17 ), Max( 0.53 ), Inc( 0.05 ),
+			Minor Ticks( 4 ), 
+			Add Ref Line(0.19, "Dotted", "Blue", "Large LSL 0.19", 1), 
+			Add Ref Line( 0.49, "Dotted", "Blue", "Large USL 0.49", 1 ),
+			Add Ref Line( 0.21, "Dotted", "Red", "Small LSL 0.21", 1 ),
+			Add Ref Line( 0.51, "Dotted", "Red", "Small USL 0.51", 1 ),
+			Label Row( Set Font Size( 9 ) )}
+		),
+		Dispatch(
+			{},
+			"BT",
+			ScaleBox,
+			{Min( 0.35 ), Max( 0.87 ), Inc( 0.1 ),
+			Minor Ticks( 4 ), 
+			Add Ref Line(0.39, "Dotted", "Blue", "Large LSL 0.39", 1), 
+			Add Ref Line( 0.79, "Dotted", "Blue", "Large USL 0.79", 1 ),
+			Add Ref Line( 0.45, "Dotted", "Red", "Small LSL 0.45", 1 ),
+			Add Ref Line( 0.85, "Dotted", "Red", "Small USL 0.85", 1 ),
+			Label Row( Set Font Size( 9 ) )}
+		),
+		Dispatch(
+			{},
+			"160T",
+			ScaleBox,
+			{Min( 0.62 ), Max( 1.45 ),
+			Inc( 0.2 ), Minor Ticks( 3 ),
+			Add Ref Line( 0.66, "Dotted", "Blue", "Large LSL 0.66", 1 ),
+			Add Ref Line( 1.06, "Dotted", "Blue", "Large USL 1.06", 1 ),
+			Add Ref Line( 0.9, "Dotted", "Red", "Small LSL 0.9", 1 ),
+			Add Ref Line( 1.3, "Dotted", "Red", "Small USL 1.3", 1 ),
+			Label Row( Set Font Size( 9 ) )}
+		),
+		Dispatch(
+			{},
+			"graph title",
+			TextEditBox,
+			{Set Text( "Travel Distribution" )}
+		)
+	)
+);
+);
+
+Force;
+Travel;
+
+// 判断数据
