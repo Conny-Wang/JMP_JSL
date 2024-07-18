@@ -83,3 +83,8 @@ git reset --hard origin/main
 
 git pull
 
+**9.设置全局代理**
+
+git config --global http.proxy http://127.0.0.1:7897
+git config --global https.proxy http://127.0.0.1:7897
+
