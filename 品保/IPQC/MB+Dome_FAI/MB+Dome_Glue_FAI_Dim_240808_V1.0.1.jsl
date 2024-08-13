@@ -1,0 +1,303 @@
+﻿//!
+
+
+// MB+Dome 溢胶尺寸脚本
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+//================================================================
+
+// 引用路径明细
+// 原始数据存放目录
+Dir_Source = "$Desktop/MB+Dome_FAI/Source";
+// 保存数据表目录
+Local_Save_Path = "$Desktop/MB+Dome_FAI/Save_JMP";
+// 公盘存放文件路径
+Public_Save_Path = "//192.168.0.245/品保课/A产品数据/粘贴IPQC数据/MB+D IPQC report_暂存/MB+Dome_溢胶尺寸_Backup/";
+
+// 生产信息对照表路径
+IPQC_Source = "$Desktop/MB+D IPQC report source.jmp";
+FAI_Info = "$Desktop/MB+Dome_FAI/FAI_Info.jmp";
+
+//================================================================
+
+// 创建一个窗体函数用来调用
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+
+// 判断原始数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Dir_Source ) == 0,
+	Create Directory( Dir_Source )
+);
+
+// 判断保存数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Local_Save_Path ) == 0,
+	Create Directory( Local_Save_Path )
+);
+
+// 判断公盘保存数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Public_Save_Path ) == 0,
+	Create Directory( Public_Save_Path )
+);
+
+//================================================================
+
+// 新建窗体
+nw_main = New Window( "MB+Dome 溢胶尺寸" );
+nw_main << Append(
+	Outline Box( "FAI Dome 溢胶尺寸",
+		V List Box( //垂直排列显示框
+			H List Box( Text Box( "测试日期	:    " ), Test_Date_Box = Text Edit Box( "D", <<Set Width( 100 ) ) ), // 测试日期
+			H List Box( Text Box( "测试时间	:    " ), Test_Time_Box = Text Edit Box( "T", <<Set Width( 100 ) ) ),   // 测试时间
+		),
+		Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+		//点击按钮可以运行对应的脚本
+		Button Box( "生成尺寸溢胶报表", Import_Data ), 
+		Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+			// 保存报表
+		Button Box( "保存报表", Save_FAI_Data )
+	)
+);
+//设置窗体大小 移动窗体位置
+nw_main << Set Window Size( 260, 420 ) << Move window( 1600, 100 );
+
+
+//================================================================
+Import_Data = Expr(
+
+// 获取测试日期
+Test_Date = Test_Date_Box << Get Text();
+// 获取测试时间
+Test_Time = Test_Time_Box << Get Text();
+
+// 导入文件
+mfi = Multiple File Import( <<Set Folder( Dir_Source ), 
+<<Set Charset( "gb2312" ),
+<<Set Add File Name Column( 1 ),
+) << Import Data();
+
+// 设置当前表为活动表
+dt = Current Data Table();
+
+If( Is Empty( dt ),
+	NwFunc("桌面 "||Dir_Source||" 文件夹为空\!r文件未导入");
+	Stop();
+);
+
+If( N Table()>1,
+	NwFunc("原始文件格式不一致，请确认！");
+	Stop();
+);
+
+
+//改表名
+dt << Set Name( "Dim_Data" );
+
+
+// 删除项目列
+Try(dt << Delete Columns(:项目),Throw("删除 #项目# 列失败"));
+
+// 修改列名称
+col_lists = {"目标","上公差","下公差","Sample1","Sample2",
+	"Sample3","Sample4","Sample5","File_Name"		
+};
+
+For( i = 1, i <= N Items( col_lists ), i++,
+	Column( dt, i ) << set name( col_lists[i] )
+);
+
+// 选中 Sample1 所有缺失值的行数并删除
+dt << Select Where( Is Missing( :Sample1 ) ) << Delete Rows;
+
+new_col_list = {"Line No.","customer","stage","Large Tool","Small Tool","MB vendor",
+	"Assy","data type","Test Date","Test Time","Dome Size","key_number","Item"
+};
+// 新建13列
+For( i = 1, i <= N Items( new_col_list ), i++,
+	New Column( new_col_list[i], character )
+);
+// 移动到最前面
+dt << Move Selected Columns( new_col_list, To First );
+// 修改 key_number 为数字
+dt:key_number << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+
+// 写入巡回时间和日期和线体
+dt:Test Date << Set Formula( Test_Date );
+dt:Test Time << Set Formula( Test_Time );
+dt:Line No. << Set Formula(Item(3, :File_Name, "-"));
+
+// 打开生产信息对照表
+Try( dt2 = Open(IPQC_Source,Invisible), Throw( "打开桌面 " || IPQC_Source || " 信息对照表错误" ) );
+
+// 更新表信息
+dt << Update(
+	With( dt2 ),
+	Match Columns( :Line No. = :Line No., :Test Date = :Test Date, :Test Time = :Test Time ),
+	Add Columns from Update Table( None ),
+	Replace Columns in Main Table( :customer, :stage, :Large Tool, :Small Tool, :MB vendor, :Assy, :data type )
+);
+
+// 关闭信息对照表
+Close( dt2, No Save );
+
+//判断有没有匹配失败的
+rmiss = dt << Get Rows Where( dt:customer == "" );
+If( N Items(rmiss) != 0,
+	NwFunc( "有客户匹配为空，请检查！" );
+	Stop();
+);
+
+// 删除公式
+dt:Test Date << Delete Formula;
+dt:Test Time << Delete Formula;
+dt:Line No. << Delete Formula;
+
+// 先获取机种并保存为 List
+assy_lists = Associative Array(dt:Assy) << Get Keys;
+
+// 双重 for 循环序列
+For( i = 1, i <= N Items( assy_lists ), i++,
+	r = dt << Get Rows Where( dt:Assy == assy_lists[i] );
+	For( j = 1, j <= N Items( r ), j++,
+		temp = r[j];
+		dt:key_number[temp] = j;
+	);
+);
+
+// 打开 KeyNumber 信息对照表
+Try( dt3 = Open(FAI_Info,Invisible), Throw( "打开桌面 " || FAI_Info || " 信息对照表错误" ) );
+
+// 更新 FAI 表信息
+dt << Update(
+	With( dt3 ),
+	Match Columns( :Assy = :KB_Type, :key_number = :Key_Number ),
+	Add Columns from Update Table( None ),
+	Replace Columns in Main Table( :Item, :Dome Size )
+);
+
+// 关闭信息对照表
+Close( dt3, No Save );
+
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+// 获取大 Dome 行数
+r_larger = dt << Get Rows Where( :Dome Size == "Large" );
+r_small = dt << Get Rows Where( :Dome Size == "Small" );
+// 获取最大值
+Larger_Max = Max( dt[r_larger, 17], dt[r_larger, 18], dt[r_larger, 19], dt[r_larger, 20], dt[r_larger, 21] );
+Small_Max = Max( dt[r_small, 17], dt[r_small, 18], dt[r_small, 19], dt[r_small, 20], dt[r_small, 21] );
+// 新建一个空 List 存放结果
+result_list = {};
+//判断大 Dome
+If( Larger_Max > 0.3, 
+	Insert Into(result_list,"大 Dome 溢胶超规 最大值：" || Char(Larger_Max));
+);
+// 判断小 Dome 
+If( Small_Max > 0.31, 
+	Insert Into(result_list,"小 Dome 溢胶超规 最大值：" || Char(Small_Max));
+);
+// 显示结果
+If( N Items( result_list ) != 0,
+	NwFunc( result_list )
+);
+
+// 拉图
+
+GBwindwos = dt << Graph Builder(
+	Size( 1445, 694 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :Sample1 ),
+		X( :Sample2, Position( 1 ) ),
+		X( :Sample3, Position( 1 ) ),
+		X( :Sample4, Position( 1 ) ),
+		X( :Sample5, Position( 1 ) ),
+		Group X( :Assy ),
+		Overlay( :Dome Size )
+	),
+	Elements( Box Plot( X( 1 ), X( 2 ), X( 3 ), X( 4 ), X( 5 ), Legend( 30 ) ) ),
+	SendToReport(
+		Dispatch(
+			{},
+			"",
+			ScaleBox,
+			{Min( 0 ), Max( 0.318308207705193 ), Inc( 0.05 ), Minor Ticks( 1 ),
+			Add Ref Line( 0, "Dotted", "Blue", "Large LSL 0", 1 ),
+			Add Ref Line( 0.3, "Dotted", "Blue", "Large USL 0.3", 1 ),
+			Add Ref Line( 0.01, "Dotted", "Red", "Small LSL 0.01", 1 ),
+			Add Ref Line( 0.31, "Dotted", "Red", "Small USL 0.31", 1 )}
+		),
+		Dispatch(
+			{},
+			"400",
+			ScaleBox,
+			{Legend Model(
+				30,
+				Properties( 0, {Line Color( 5 )}, Item ID( "Large", 1 ) ),
+				Properties( 1, {Line Color( 14 )}, Item ID( "Small", 1 ) )
+			)}
+		),
+		Dispatch( {}, "graph title", TextEditBox, {Set Text( "溢胶尺寸数据" )} ),
+		Dispatch( {}, "X title", TextEditBox, {Set Text( "" )} )
+	)
+);
+
+GBwindwos << Bring Window To Front;
+
+
+
+);
+
+// 保存数据
+Save_FAI_Data = Expr(
+	
+	set_file_names = Test_Date || Left( Test_Time, 3 );
+	IPQC_File_Name = Files In Directory( Local_Save_Path );
+	
+	If( N Items( IPQC_File_Name ) == 1, 
+	// 获取旧文件名
+	Test_Date_Old = Items( IPQC_File_Name[1], ".-" );
+	
+	If( N Items( Test_Date_Old ) == 2,
+		Test_Date_Old = Right( Test_Date_Old[1], 7 ),
+		Test_Date_Old = Test_Date_Old[2]
+	);
+
+	dt4 = Open( Local_Save_Path || "/" || IPQC_File_Name[1] );
+	dt4 << Concatenate( dt, Append to first table );
+	dt4 << Save As( Local_Save_Path || "/IRI MB+Dome 溢胶 Dim Data-" || Test_Date_Old || "-" || set_file_names || ".jmp" );
+	Try(dt << Save As( Public_Save_Path || "IRI MB+Dome 溢胶 Dim Data " || set_file_names || " " || Char( Today() ) || ".jmp" ));
+	// 删除旧文件
+	Delete File( Local_Save_Path || "/" || IPQC_File_Name[1] );
+,
+	dt << Save As( Local_Save_Path || "/IRI MB+Dome 溢胶 Dim Data-" || set_file_names || ".jmp" );
+	Try(dt << Save As( Public_Save_Path || "IRI MB+Dome 溢胶 Dim Data " || set_file_names || " " || Char( Today() ) || ".jmp" ));
+);
+
+Close All( Data Tables, NoSave );
+
+// 获取文件目录 并删除文件
+Files = Files In Directory( Dir_Source );
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( Dir_Source || "/" || Files[i] )
+	);
+);
+	
+);
