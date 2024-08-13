@@ -167,16 +167,21 @@ dt:Test Time << Delete Formula;
 dt:Line No. << Delete Formula;
 
 // 先获取机种并保存为 List
-assy_lists = Associative Array(dt:Assy) << Get Keys;
+dt << New Column( "Assy_Customer", "character" );
+dt:Assy_Customer << Set Formula( :customer || :Assy );
+assy_lists = Associative Array( dt[0, 23] ) << Get Keys;
+
 
 // 双重 for 循环序列
 For( i = 1, i <= N Items( assy_lists ), i++,
-	r = dt << Get Rows Where( dt:Assy == assy_lists[i] );
+	r = dt << Get Rows Where( dt:Assy_Customer == assy_lists[i] );
 	For( j = 1, j <= N Items( r ), j++,
 		temp = r[j];
 		dt:key_number[temp] = j;
 	);
 );
+
+dt << Delete Columns( :Assy_Customer );
 
 // 打开 KeyNumber 信息对照表
 Try( dt3 = Open(FAI_Info,Invisible), Throw( "打开桌面 " || FAI_Info || " 信息对照表错误" ) );
@@ -197,8 +202,8 @@ Script_List = dt << Get Table Script Names;
 dt << Delete Scripts( Script_List );
 
 // 获取大 Dome 行数
-r_larger = dt << Get Rows Where( :Dome Size == "Large" );
-r_small = dt << Get Rows Where( :Dome Size == "Small" );
+r_larger = dt << Get Rows Where( :Dome Size == "Large" & :customer == "LL" );
+r_small = dt << Get Rows Where( :Dome Size == "Small" & :customer == "LL" );
 // 获取最大值
 Larger_Max = Max( dt[r_larger, 17], dt[r_larger, 18], dt[r_larger, 19], dt[r_larger, 20], dt[r_larger, 21] );
 Small_Max = Max( dt[r_small, 17], dt[r_small, 18], dt[r_small, 19], dt[r_small, 20], dt[r_small, 21] );
@@ -223,11 +228,12 @@ GBwindwos = dt << Graph Builder(
 	Size( 1445, 694 ),
 	Show Control Panel( 0 ),
 	Variables(
-		X( :Sample1 ),
-		X( :Sample2, Position( 1 ) ),
-		X( :Sample3, Position( 1 ) ),
-		X( :Sample4, Position( 1 ) ),
-		X( :Sample5, Position( 1 ) ),
+		X( :Sample1, Combine( "Parallel Merged" ) ),
+		X( :Sample2, Position( 1 ), Combine( "Parallel Merged" ) ),
+		X( :Sample3, Position( 1 ), Combine( "Parallel Merged" ) ),
+		X( :Sample4, Position( 1 ), Combine( "Parallel Merged" ) ),
+		X( :Sample5, Position( 1 ), Combine( "Parallel Merged" ) ),
+		Group X( :customer ),
 		Group X( :Assy ),
 		Overlay( :Dome Size )
 	),
@@ -237,7 +243,7 @@ GBwindwos = dt << Graph Builder(
 			{},
 			"",
 			ScaleBox,
-			{Min( 0 ), Max( 0.318308207705193 ), Inc( 0.05 ), Minor Ticks( 1 ),
+			{Min( -0.05 ), Max( 0.6 ), Inc( 0.05 ), Minor Ticks( 1 ),
 			Add Ref Line( 0, "Dotted", "Blue", "Large LSL 0", 1 ),
 			Add Ref Line( 0.3, "Dotted", "Blue", "Large USL 0.3", 1 ),
 			Add Ref Line( 0.01, "Dotted", "Red", "Small LSL 0.01", 1 ),
@@ -259,6 +265,7 @@ GBwindwos = dt << Graph Builder(
 );
 
 GBwindwos << Bring Window To Front;
+
 
 
 
