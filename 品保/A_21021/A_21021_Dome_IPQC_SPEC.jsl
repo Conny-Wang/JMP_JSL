@@ -1,6 +1,6 @@
-﻿//
+﻿//!
 //21021_Mold_IPQC_SPEC
-//Force 规格更新日期 2024/01/01
+//Force 规格更新日期 2024/05/22
 
 Spectext = "Spec 引用成功！";
 
@@ -28,8 +28,8 @@ L_LSL_RPF = 41;
 L_LSL_160T = 0.66;
 L_USL_160T = 1.06;
 
-L_LSL_PFmean = 60;
-L_USL_PFmean = 64;
+L_LSL_PFmean = 59;
+L_USL_PFmean = 63;
 
 //小 Dome Force 规格
 
@@ -53,8 +53,8 @@ S_LSL_RPF = 44;
 S_LSL_160T = 0.9;
 S_USL_160T = 1.3;
 
-S_LSL_PFmean = 61;
-S_USL_PFmean = 65;
+S_LSL_PFmean = 60;
+S_USL_PFmean = 64;
 
 //==================================
 

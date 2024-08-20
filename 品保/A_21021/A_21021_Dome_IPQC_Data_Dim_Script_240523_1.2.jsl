@@ -1,5 +1,5 @@
-﻿//
-//更新日期 2024/01/03
+﻿//!
+//更新日期 2024/05/23 新增自动删除原始文件
 
 
 NW = Expr(
@@ -430,6 +430,14 @@ Tool_A = Tool_BoxA << Get Text();
 //保存文件到桌面
 //dt << Save("$Desktop/dt.jmp")
  dt << Save("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Dome IPQC report_暂存\21021_IPQC_Data_JMP\Dome " || Char(Tool_A) || " IPQC Dim Data " || Char(Test_DateA) || " " || Substr(Test_TimeA,1,3)||".jmp");
+
+Files = Files In Directory( "$Desktop\21021_IPQC_Data_source" );
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( "$Desktop\21021_IPQC_Data_source\" || Files[i] )
+	);
+);
+
 );
 
 
@@ -813,6 +821,14 @@ Tool_B = Tool_BoxB << Get Text();
 //保存文件到桌面
 //dt << Save("$Desktop/dt.jmp")
  dt << Save("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Dome IPQC report_暂存\21021_IPQC_Data_JMP\Dome " || Char(Tool_B) || " IPQC Dim Data " || Char(Test_DateB) || " " || Substr(Test_TimeB,1,3)||".jmp");
+
+Files = Files In Directory( "$Desktop\21021_IPQC_Data_source" );
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( "$Desktop\21021_IPQC_Data_source\" || Files[i] )
+	);
+);
+
 );
 
 
