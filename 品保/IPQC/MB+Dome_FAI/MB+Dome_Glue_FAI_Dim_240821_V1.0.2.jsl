@@ -1,6 +1,8 @@
 ﻿//!
 
 
+// 2024/08/21 更新增加线体防呆
+
 // MB+Dome 溢胶尺寸脚本
 
 //================================================================
@@ -168,8 +170,8 @@ dt:Line No. << Delete Formula;
 
 // 先获取机种并保存为 List
 dt << New Column( "Assy_Customer", "character" );
-dt:Assy_Customer << Set Formula( :customer || :Assy );
-assy_lists = Associative Array( dt[0, 23] ) << Get Keys;
+dt:Assy_Customer << Set Formula( :customer || :Assy || :Line No. );
+assy_lists = Associative Array( dt[0,23] ) << Get Keys;
 
 
 // 双重 for 循环序列
