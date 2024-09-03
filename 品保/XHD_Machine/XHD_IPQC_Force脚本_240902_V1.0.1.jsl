@@ -1,0 +1,840 @@
+﻿//!
+
+
+// 2024/09/02 新增 XHD IPQC Foce 脚本
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+//================================================================
+
+information = New Window( "NonA_IPQC_Report",
+	Outline Box( "Non A force",
+		V List Box(
+			IPQC_force = Button Box( "force loading data" ),
+			force_report = Button Box( "生成force报表" )
+		)
+	)
+);
+
+information << Set Window Size(200,200);
+information << Move window(1600,50);
+
+IPQC_force << Set Script(
+
+
+// 创建一个窗体函数用来调用
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+
+// 选择文件夹
+FilePath = Pick Directory( "Select a directory" );
+If(FilePath == "",
+	NwFunc("未选择文件夹，请重新选择！");
+	Stop();
+);
+// 导入文件
+mfi = Multiple File Import();
+mfi << Set Folder( FilePath );
+mfi << Set Charset( "gb2312" );
+mfi << Set Add File Name Column( 1 );
+mfi << Import Data();
+// 判断表格式是否一致
+TablesNum = N Table();
+If( TablesNum > 1,
+	NwFunc( "原始数据格式不一致，请检查！" );
+	Stop();
+);
+// 设置为活动表
+dt = Current Data Table();
+// 改表名称
+dt << Set Name( "Non A force IPQC data" );
+
+// 删除多余的行
+col1 = Column( 1 );
+col2 = Column( 2 );
+dt << Select Where( dt:col1 == "SN" );
+dt << Delete Rows;
+dt << Select Where( dt:col2 == "" );
+dt << Delete Rows;
+// 删除前三列以及14列
+dt << Delete Columns(1,2,3,14);
+
+//修改列名称
+NewCols = {
+	"F1_g", "F1_mm", "F2_g", "F2_mm", "F3_g", "F3_mm",
+	"F4_g", "F4_mm", "Cf/Cr_g", "Cf/Cr_%","Max"
+};
+
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	Column( dt, i ) << set name( NewCols[i] )
+);
+
+// 去除 * 号
+// 替换数据表中的全部
+Local( {dt = Data Table( "Non A force IPQC data" )},
+	dt << Begin Data Update;
+	For Each( {col},
+		dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		For Each Row( dt, col[] = Substitute( col[], "*", " ", <<IGNORECASE ) )
+	);
+	dt << End Data Update;
+);
+
+
+// 所有转换为数字
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	cols = column(i);
+	dt:cols << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+);
+
+
+	dt << New column("Dome_Type",character,formula(Uppercase(word(1,:File Name,"-"))));
+	dt << New column("Tool",character,formula(Uppercase(word(2,:File Name,"-"))));
+	dt << New Column("Date",character,formula(word(3,:File Name,"-")));
+	dt << New Column("Time",character,formula(word(1,word(-1,:File Name,"-"),".")));
+	dt << Move Selected Column({:Dome_Type,:Tool,:Date,:Time,::File Name},to first);
+	dt << New column("PFmean",formula(round(Col Mean( :F1_g,:Date,:Time,:Dome_Type,:Tool ),3)));
+	
+	dt_Spec = open("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\A_force_Spec勿删\Non A force Spec.jmp");
+	
+	dt = dt << Update(
+		with(data table(dt_Spec)),
+		Match Columns(:Dome_Type = :Dome_Type,:Tool = :Tool)
+	);
+	close(dt_Spec,Nosave);
+	
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+	
+//================================================================
+	dt = Current Data Table();
+	dt << Select where(is missing(:F1_LSL));
+	sel_row_tr = dt << Get Selected Rows();
+	sel_rows = length(sel_row_tr);
+	if( sel_rows > 0,
+		miss_spec_dt = dt << Data view;
+		miss_spec_dt_summary = miss_spec_dt << Summary(Group(:Dome_Type,:Tool));
+		miss_spec_dt_summary << New Column("Type_Tool",character,formula(:Dome_Type||" "||:Tool));
+		miss_spec_tool_list = miss_spec_dt_summary:Type_Tool << Get Values();
+		miss_spec_tool_list_str = Concat Items(miss_spec_tool_list,"
+		");
+		close(miss_spec_dt_summary,Nosave);
+		close(miss_spec_dt,Nosave);
+		NW = New window("Tip",at = Border Box(at1=Text Box(concat("  ",miss_spec_tool_list_str,"
+		以上机种规格缺失，请核对force文件名内机种名和规格表是否一致！")),at1 << Font( "Times New Roman", 12, "Bold" )),at << set background color( "Red" ),tx = button box("确认"));
+		NW << move window(800,350);
+		NW << Bring Window To Front;
+		tx << Set Script( NW << close window );
+		stop()
+	);
+
+	
+	lot_summary = dt << Summary(
+		Group(:Date,:Time,:Dome_Type,:Tool),
+		min(:F1_g,:F4_g,"Cf/Cr_%"n),
+		max(:F1_g,:F4_g,"Cf/Cr_%"n),
+		mean(:PFmean,F1_LSL,F1_USL,F4_LSL,CR_LSL,CR_USL,PFmean_LSL,PFmean_USL),
+		Link to original data table(0),
+		output table("lot summary")
+	);
+	lot_Qty = N Rows(lot_summary);
+	lot_summary:"min(F1_g)"n << Set Name("F1_min");
+	lot_summary:"min(F4_g)"n << Set Name("F4_min");
+	lot_summary:"min(Cf/Cr_%)"n << Set Name("CR_min");
+	lot_summary:"max(F1_g)"n << Set Name("F1_max");
+	lot_summary:"max(F4_g)"n << Set Name("F4_max");
+	lot_summary:"max(Cf/Cr_%)"n << Set Name("CR_max");
+	lot_summary:"mean(PFmean)"n << Set Name("PFmean");
+	lot_summary:"mean(F1_LSL)"n << Set Name("F1_LSL");
+	lot_summary:"mean(F1_USL)"n << Set Name("F1_USL");
+	lot_summary:"mean(F4_LSL)"n << Set Name("F4_LSL");
+	lot_summary:"mean(CR_LSL)"n << Set Name("CR_LSL");
+	lot_summary:"mean(CR_USL)"n << Set Name("CR_USL");
+	lot_summary:"mean(PFmean_LSL)"n << Set Name("PFmean_LSL");
+	lot_summary:"mean(PFmean_USL)"n << Set Name("PFmean_USL");
+	lot_summary << New column("F1_Result",character,formula(
+		if( :F1_min < :F1_LSL,
+			"F1 Low",
+			:F1_max > :F1_USL,
+			"F1 High"
+		)
+	));
+	lot_summary << New column("F4_Result",character,formula(
+		if( :F4_min < :F4_LSL,
+			"F4 Low"
+		)
+	));
+	lot_summary << New column("CR_Result",character,formula(
+		if( :CR_min < :CR_LSL,
+			"CR Low",
+			:CR_max > :CR_USL,
+			"CR High"
+		)
+	));
+	lot_summary << New column("PFmean_Result",character,formula(
+		if( :PFmean < :PFmean_LSL,
+			"PFmean Low",
+			:PFmean > :PFmean_USL,
+			"PFmean High"
+		)
+	));
+	lot_summary << New column("Result",character,formula(
+		if( !is missing(:F1_Result),:F1_Result,"")||if( !is missing(:F4_Result),:F4_Result,"")||
+		if( !is missing(:CR_Result),:CR_Result,"")||if( !is missing(:PFmean_Result),:PFmean_Result,"")
+	));
+	lot_Result = lot_summary << Sort(
+		By( :Date, :Time, :Dome_Type, :Tool ),
+		Order( Ascending, Ascending, Ascending, Ascending ),
+		Copy formula( 0 ),
+		Output table("lot Result")
+	);
+	lot_Result << Select where(is missing(:Result));
+	lot_Result << Delete Rows;
+	NG_lots = N Rows(lot_Result);
+	Result_Box = function({i},
+		V list Box(
+			H List Box( 
+				if( column(lot_Result,"Dome_Type")[i] != "",H List Box(ax = Border Box(ax1=Text Box(concat(column(lot_Result,"Date")[i],",",column(lot_Result,"Time")[i],",",column(lot_Result,"Dome_Type")[i],",",column(lot_Result,"Tool")[i],":")),ax1 << Font( "Times New Roman", 10, "Bold" )),ax << set background color( "Yellow" ),Spacer box(size(3,3)))),
+				if( column(lot_Result,"PFmean_Result")[i] != "",H List Box(gx = Border Box(gx1 = Text Box(concat(column(lot_Result,"PFmean_Result")[i],"(",char(round(column(lot_Result,"PFmean")[i],3)),")")),gx1 << Font( "Times New Roman", 10, "Bold" )),gx << set background color( "Medium Dark Red" ),Spacer box(size(3,3)))),
+				if( Column(lot_Result,"F1_Result")[i] != "" & contains(Column(lot_Result,"F1_Result")[i],"Low"),H List Box(bx = Border Box(bx1 = Text Box(concat(Column(lot_Result,"F1_Result")[i],"(",char(Column(lot_Result,"F1_min")[i]),")")),bx1 << Font( "Times New Roman", 10, "Bold" )),bx << set background color( "Red" ),Spacer box(size(3,3))),
+					Column(lot_Result,"F1_Result")[i] != "" & contains(Column(lot_Result,"F1_Result")[i],"High"),H List Box(bx = Border Box(bx1 = Text Box(concat(Column(lot_Result,"F1_Result")[i],"(",char(Column(lot_Result,"F1_max")[i]),")")),bx1 << Font( "Times New Roman", 10, "Bold" )),bx << set background color( "Red" ),Spacer box(size(3,3)))
+				),
+				if( Column(lot_Result,"F4_Result")[i] != "" & contains(Column(lot_Result,"F4_Result")[i],"Low"),H List Box(bx = Border Box(bx1 = Text Box(concat(Column(lot_Result,"F4_Result")[i],"(",char(Column(lot_Result,"F4_min")[i]),")")),bx1 << Font( "Times New Roman", 10, "Bold" )),bx << set background color( "Red" ),Spacer box(size(3,3))),
+					Column(lot_Result,"F4_Result")[i] != "" & contains(Column(lot_Result,"F4_Result")[i],"High"),H List Box(bx = Border Box(bx1 = Text Box(concat(Column(lot_Result,"F4_Result")[i],"(",char(Column(lot_Result,"F4_max")[i]),")")),bx1 << Font( "Times New Roman", 10, "Bold" )),bx << set background color( "Red" ),Spacer box(size(3,3)))
+				),
+				if( Column(lot_Result,"CR_Result")[i] != "" & contains(Column(lot_Result,"CR_Result")[i],"Low"),H List Box(bx = Border Box(bx1 = Text Box(concat(Column(lot_Result,"CR_Result")[i],"(",char(Column(lot_Result,"CR_min")[i]),")")),bx1 << Font( "Times New Roman", 10, "Bold" )),bx << set background color( "Red" ),Spacer box(size(3,3))),
+					Column(lot_Result,"CR_Result")[i] != "" & contains(Column(lot_Result,"CR_Result")[i],"High"),H List Box(bx = Border Box(bx1 = Text Box(concat(Column(lot_Result,"CR_Result")[i],"(",char(Column(lot_Result,"CR_max")[i]),")")),bx1 << Font( "Times New Roman", 10, "Bold" )),bx << set background color( "Red" ),Spacer box(size(3,3)))
+				)
+			),
+		if( column(lot_Result,"Dome_Type")[i] != "",Spacer box(size(2,2)))
+		)
+	);
+	if( NG_lots > 0,
+		Tip = New Window( "force_result_Tip",
+			V List Box(
+				Result_Box( 1 ),
+				Result_Box( 2 ),
+				Result_Box( 3 ),
+				Result_Box( 4 ),
+				Result_Box( 5 ),
+				Result_Box( 6 ),
+				Result_Box( 7 ),
+				Result_Box( 8 ),
+				Result_Box( 9 ),
+				qx = Button Box( "确认" )
+			)
+		);
+		qx << Set Script( Tip << close window );
+		Tip << move window(5,0),
+		Tip = New window("force_result_Tip",ax = Border Box(ax1=Text Box("所有tool的force均OK"),ax1 << Font( "Times New Roman", 11, "Bold" )),ax << set background color( "Green" ),bx = button box("确认"));
+		Tip << move window(5,0);
+		bx << Set Script( Tip << close window );
+	);
+	close(lot_Result,Nosave);
+	if( lot_Qty == 1,
+		F1_LSL_value = column(lot_summary,"F1_LSL")[1];
+		F1_USL_value = column(lot_summary,"F1_USL")[1];
+		F4_LSL_value = column(lot_summary,"F4_LSL")[1];
+		CR_LSL_value = column(lot_summary,"CR_LSL")[1];
+		CR_USL_value = column(lot_summary,"CR_USL")[1];
+		PFmean_LSL_value = column(lot_summary,"PFmean_LSL")[1];
+		PFmean_USL_value = column(lot_summary,"PFmean_USL")[1];
+	);
+	close(lot_summary,Nosave);
+	if( lot_Qty == 1,
+		force_dis = dt << Graph Builder(
+			Size( 1434, 737 ),
+			Show Control Panel( 0 ),
+			Variables(
+				X( :Date ),
+				X( :Time, Position( 1 ) ),
+				X( :Dome_Type, Position( 1 ) ),
+				X( :Tool, Position( 1 ) ),
+				Y( :F1_g ),
+				Y( :F4_g ),
+				Y( :"Cf/Cr_%"n )
+			),
+			Elements(
+				Position( 1, 1 ),
+				Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y, Legend( 13 ) ),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y,
+					Legend( 16 ),
+					Summary Statistic( "Min" )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y,
+					Legend( 19 ),
+					Summary Statistic( "Max" )
+				),
+				Caption Box( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y, Legend( 22 ) )
+			),
+			Elements(
+				Position( 1, 2 ),
+				Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y, Legend( 14 ) ),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y,
+					Legend( 17 ),
+					Summary Statistic( "Min" )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y,
+					Legend( 20 ),
+					Summary Statistic( "Max" )
+				),
+				Caption Box( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y, Legend( 23 ) )
+			),
+			Elements(
+				Position( 1, 3 ),
+				Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y, Legend( 15 ) ),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y,
+					Legend( 18 ),
+					Summary Statistic( "Min" )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y,
+					Legend( 21 ),
+					Summary Statistic( "Max" )
+				),
+				Caption Box( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y, Legend( 24 ) )
+			),
+			SendToReport(
+				Dispatch(
+					{},
+					"F1_g",
+					ScaleBox,
+					{Add Ref Line( F1_LSL_value, "Dotted", "Blue", "LSL "||char(F1_LSL_value), 1 ),
+					Add Ref Line( F1_USL_value, "Dotted", "Red", "USL "||char(F1_USL_value), 1 )}
+				),
+				Dispatch(
+					{},
+					"F4_g",
+					ScaleBox,
+					{Add Ref Line( F4_LSL_value, "Dotted", "Blue", "LSL "||char(F4_LSL_value), 1 )}
+				),
+				Dispatch(
+					{},
+					"Cf/Cr_%",
+					ScaleBox,
+					{Add Ref Line( CR_LSL_value, "Dotted", "Blue", "LSL "||char(CR_LSL_value), 1 ),
+					Add Ref Line( CR_USL_value, "Dotted", "Red", "USL "||char(CR_USL_value), 1 )}
+				),
+				Dispatch( {}, "graph title", TextEditBox, {Set Text( "force distribute" )} )
+			)
+		),
+		force_dis = dt << Graph Builder(
+			Size( 1400, 737 ),
+			Show Control Panel( 0 ),
+			Variables(
+				X( :Date ),
+				X( :Time, Position( 1 ) ),
+				X( :Dome_Type, Position( 1 ) ),
+				X( :Tool, Position( 1 ) ),
+				Y( :F1_g ),
+				Y( :F1_LSL, Position( 1 ) ),
+				Y( :F1_USL, Position( 1 ) ),
+				Y( :F4_g ),
+				Y( :F4_LSL, Position( 2 ) ),
+				Y( :"Cf/Cr_%"n ),
+				Y( :CR_LSL, Position( 3 ) ),
+				Y( :CR_USL, Position( 3 ) )
+			),
+			Elements(
+				Position( 1, 1 ),
+				Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y( 1 ), Legend( 59 ) ),
+				Line(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 2 ),
+					Y( 3 ),
+					Legend( 65 ),
+					Connection( "Centered Step" )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 68 ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 71 ),
+					Summary Statistic( "Max" ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 74 ),
+					Summary Statistic( "Min" ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				)
+			),
+			Elements(
+				Position( 1, 2 ),
+				Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y( 1 ), Legend( 60 ) ),
+				Line(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 2 ),
+					Legend( 66 ),
+					Connection( "Centered Step" )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 69 ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 72 ),
+					Summary Statistic( "Max" ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 75 ),
+					Summary Statistic( "Min" ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				)
+			),
+			Elements(
+				Position( 1, 3 ),
+				Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y( 1 ), Legend( 61 ) ),
+				Line(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 2 ),
+					Y( 3 ),
+					Legend( 67 ),
+					Connection( "Centered Step" )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 70 ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 73 ),
+					Summary Statistic( "Max" ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				),
+				Caption Box(
+					X( 1 ),
+					X( 2 ),
+					X( 3 ),
+					X( 4 ),
+					Y( 1 ),
+					Legend( 76 ),
+					Summary Statistic( "Min" ),
+					Y Position( "Bottom" ),
+					Per Factor( 1 )
+				)
+			),
+			SendToReport(
+				Dispatch(
+					{},
+					"400",
+					ScaleBox,
+					{Legend Model(
+						65,
+						Properties(
+							0,
+							{Line Color( 5 ), Line Style( "Dotted" ), Line Width( 1 )},
+							Item ID( "均值(F1_LSL)", 1 )
+						),
+						Properties(
+							1,
+							{Line Color( 3 ), Line Style( "Dotted" ), Line Width( 1 )},
+							Item ID( "均值(F1_USL)", 1 )
+						)
+					), Legend Model(
+						66,
+						Properties(
+							0,
+							{Line Color( 5 ), Line Style( "Dotted" ), Line Width( 1 )},
+							Item ID( "均值(F4_LSL)", 1 )
+						)
+					), Legend Model(
+						67,
+						Properties(
+							0,
+							{Line Color( 5 ), Line Style( "Dotted" ), Line Width( 1 )},
+							Item ID( "均值(CR_LSL)", 1 )
+						),
+						Properties(
+							1,
+							{Line Color( 3 ), Line Style( "Dotted" ), Line Width( 1 )},
+							Item ID( "均值(CR_USL)", 1 )
+						)
+					)}
+				),
+				Dispatch( {}, "graph title", TextEditBox, {Set Text( "force distribute" )} ),
+				Dispatch( {}, "Y title", TextEditBox, {Set Text( "F1_g" )} ),
+				Dispatch( {}, "Y 1 title", TextEditBox, {Set Text( "F4_g" )} ),
+				Dispatch( {}, "Y 2 title", TextEditBox, {Set Text( "Cf/Cr_%" )} ),
+				Dispatch(
+					{},
+					"400",
+					LegendBox,
+					{Legend Position(
+						{59, [0], 65, [3, 4], 60, [1], 66, [5], 61, [2], 67, [6, 7]}
+					)}
+				)
+			)
+		);
+
+	);
+	force_dis << Maximize Window;
+	Tip << Bring Window To Front;
+	information << Bring Window To Front;
+);
+
+
+force_report << Set Script(
+	win_list = Get Window List() << Get Window Title();
+	show(win_list);
+	if( contains(win_list,"force_result_Tip"),
+		Tip << close window
+	);
+	if( contains(win_list,"NonA_IPQC_Report"),
+		information << close window
+	);
+	
+	if( !Directory Exists("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Non A force data\"),
+		Create Directory("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Non A force data\")
+	);
+	if( !Directory Exists("$Desktop\Non A force data source\"),
+		Create Directory("$Desktop\Non A force data source\")
+	);
+	script_names = dt << Get Table Script Names;
+	dt << Delete Scripts(script_names);
+	file_list = Files In Directory("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Non A force data\","recursive");
+	contains_file = "";
+	for(i=1,i<=length(file_list),i++,
+		if( contains(file_list[i],"Non A force IPQC Report"),
+			contains_file = "yes";
+			report_path = "\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Non A force data\"||file_list[i];
+			break()
+		)
+	);
+	if( contains_file == "yes",
+		report_file = open(report_path);
+		report_file = report_file << Concatenate( Data Table( dt ),"Append to first table" );
+		report_file << Save;
+		close(dt,Nosave);
+		close(report_file,Nosave),
+		dt << New Script(
+			"force distribute",
+			dt_force = Graph Builder(
+				Size( 1195, 737 ),
+				Show Control Panel( 0 ),
+				Variables(
+					X( :Date ),
+					X( :Time, Position( 1 ) ),
+					X( :Dome_Type, Position( 1 ) ),
+					X( :Tool, Position( 1 ) ),
+					Y( :F1_g ),
+					Y( :F1_LSL, Position( 1 ) ),
+					Y( :F1_USL, Position( 1 ) ),
+					Y( :F4_g ),
+					Y( :F4_LSL, Position( 2 ) ),
+					Y( :"Cf/Cr_%"n ),
+					Y( :CR_LSL, Position( 3 ) ),
+					Y( :CR_USL, Position( 3 ) )
+				),
+				Elements(
+					Position( 1, 1 ),
+					Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y( 1 ), Legend( 59 ) ),
+					Line(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 2 ),
+						Y( 3 ),
+						Legend( 65 ),
+						Connection( "Centered Step" )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 68 ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 71 ),
+						Summary Statistic( "Max" ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 74 ),
+						Summary Statistic( "Min" ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					)
+				),
+				Elements(
+					Position( 1, 2 ),
+					Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y( 1 ), Legend( 60 ) ),
+					Line(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 2 ),
+						Legend( 66 ),
+						Connection( "Centered Step" )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 69 ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 72 ),
+						Summary Statistic( "Max" ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 75 ),
+						Summary Statistic( "Min" ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					)
+				),
+				Elements(
+					Position( 1, 3 ),
+					Points( X( 1 ), X( 2 ), X( 3 ), X( 4 ), Y( 1 ), Legend( 61 ) ),
+					Line(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 2 ),
+						Y( 3 ),
+						Legend( 67 ),
+						Connection( "Centered Step" )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 70 ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 73 ),
+						Summary Statistic( "Max" ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					),
+					Caption Box(
+						X( 1 ),
+						X( 2 ),
+						X( 3 ),
+						X( 4 ),
+						Y( 1 ),
+						Legend( 76 ),
+						Summary Statistic( "Min" ),
+						Y Position( "Bottom" ),
+						Per Factor( 1 )
+					)
+				),
+				Local Data Filter(
+					Conditional,
+					Add Filter(
+						columns( :Dome_Type, :Tool, :Date ),
+						Display( :Dome_Type, N Items( 2 ), "List Display" ),
+						Display( :Tool, N Items( 2 ), "List Display" ),
+						Display( :Date, N Items( 2 ), "List Display" )
+					)
+				),
+				SendToReport(
+					Dispatch(
+						{},
+						"400",
+						ScaleBox,
+						{Legend Model(
+							65,
+							Properties(
+								0,
+								{Line Color( 5 ), Line Style( "Dotted" ), Line Width( 1 )},
+								Item ID( "均值(F1_LSL)", 1 )
+							),
+							Properties(
+								1,
+								{Line Color( 3 ), Line Style( "Dotted" ), Line Width( 1 )},
+								Item ID( "均值(F1_USL)", 1 )
+							)
+						), Legend Model(
+							66,
+							Properties(
+								0,
+								{Line Color( 5 ), Line Style( "Dotted" ), Line Width( 1 )},
+								Item ID( "均值(F4_LSL)", 1 )
+							)
+						), Legend Model(
+							67,
+							Properties(
+								0,
+								{Line Color( 5 ), Line Style( "Dotted" ), Line Width( 1 )},
+								Item ID( "均值(CR_LSL)", 1 )
+							),
+							Properties(
+								1,
+								{Line Color( 3 ), Line Style( "Dotted" ), Line Width( 1 )},
+								Item ID( "均值(CR_USL)", 1 )
+							)
+						)}
+					),
+					Dispatch( {}, "graph title", TextEditBox, {Set Text( "force distribute" )} ),
+					Dispatch( {}, "Y title", TextEditBox, {Set Text( "F1_g" )} ),
+					Dispatch( {}, "Y 1 title", TextEditBox, {Set Text( "F4_g" )} ),
+					Dispatch( {}, "Y 2 title", TextEditBox, {Set Text( "Cf/Cr_%" )} ),
+					Dispatch(
+						{},
+						"400",
+						LegendBox,
+						{Legend Position(
+							{59, [0], 65, [3, 4], 60, [1], 66, [5], 61, [2], 67, [6, 7]}
+						)}
+					)
+				)
+			);
+			dt_force << Maximize Window;
+		);
+		dt << save as("\\192.168.0.245\品保课\A产品数据\成型IPQC数据\Non A force data\Non A force IPQC Report.jmp");
+		close(dt,Nosave);
+	);
+	data_source_file_list = Files In Directory(FilePath,"recursive");
+	for(j=1,j<=length(data_source_file_list),j++,
+		Move File(FilePath||data_source_file_list[j],"$Desktop\Non A force data source\"||data_source_file_list[j]);
+	);
+	
+);
