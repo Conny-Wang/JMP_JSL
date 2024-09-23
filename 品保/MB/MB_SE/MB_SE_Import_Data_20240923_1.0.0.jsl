@@ -1,0 +1,144 @@
+﻿//!
+
+// MB SE 脚本 2024/09/23 新增
+
+Names Default To Here( 1 );
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+//================================================================
+
+// 创建一个窗体函数用来调用
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+Import_Data = Expr(
+
+
+//选择存放 SE 数据的目录
+dri = Pick Directory( "选择存放 SE 数据的文件夹" );
+If( dri == "",
+	NwFunc( "未选择文件夹，请重新选择！" );
+	Stop();
+);
+
+//核对文件名
+filelist = Files In Directory(dri);
+If( Item( 2, filelist[1], "." ) != "xlsx",
+	NwFunc( "测试数据文件名需要修改为 .xlsx" );
+	Stop();
+);
+
+//批量导入需要合并的文件，默认参数，JMP 自动推导，可手动配置参数。
+	mfi = Multiple File Import();
+//设置导入目录
+	mfi << Set Folder( dri );
+//设置导入的编码为中文字体
+	mfi << Set Charset( "gb2312" );
+//批量导入
+	mfi << Import Data();
+//获取已经开的所有表数量
+	open_tables = N Table();
+//判断数据是否合并为 1 个，如果不是说明数据格式一致。
+//如果合并发现多余2个表弹窗提醒并停止下面代码继续执行。
+	If( open_tables > 1,
+		win = New Window( "错误提示", <<Modal, Text Box( "请检查数据\!r打开了多个JMP表" ), Button Box( "OK" ), );
+		Stop();
+	);
+//导入后定义当前活动表为 datatable
+	dt = Current Data Table();
+//判断有没有活动表,如果没有停止运行.
+	If( Is Empty( dt ),
+		win = New Window( "错误提示", <<Modal, Text Box( "选择的件夹为空\!r请检查文件" ), Button Box( "OK" ), );
+		Stop();
+	);
+	
+);
+
+
+Import_Data;
+
+dt = Current Data Table();
+//改名
+dt << Set Name( "MB_SE_Data" );
+//删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+//删除不需要的行
+col8 = Column( 8 );
+//dt:col1 << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt << Select Where( Is Missing( dt:col8 ) );
+dt << delete rows;
+dt << Select Rows( [1, 2] );
+dt << delete rows;
+
+
+//删除多余的1-3列
+dt << Select columns( [2,3,5,7,8,9,10,11,12] );
+dt << Delete Columns;
+
+//修改列名称
+NewCols = {"MB_SN", "Force", "阻值"};
+	
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	Column( dt, i ) << set name( NewCols[i] )
+);
+
+//去除 * 号
+// 替换数据表中的全部
+Local( {dt = Data Table( "MB_SE_Data" )},
+	dt << Begin Data Update;
+	For Each( {col},
+		dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		For Each Row( dt, col[] = Substitute( col[], "*", " ", <<IGNORECASE ) )
+	);
+	dt << End Data Update;
+);
+
+//所有转换为数字
+For( 
+	i = 2, i <= N Items( NewCols ), i++,
+	cols = column(i);
+	dt:cols << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+);
+// 拆分 Force
+dt  << Split(
+	Split By( :MB_SN ),
+	Split( :Force ),
+	Output Table( "Force" ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+
+//阻值
+dt  << Split(
+	Split By( :MB_SN ),
+	Split( :阻值 ),
+	Output Table( "阻值" ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property
+);
+
+//保存数据表
+dt2 = Data Table( "Force" );
+dt3 = Data Table("阻值");
+dt2 << Save As( "$Desktop\Force.xlsx" );
+dt3 << Save As("$Desktop\阻值.xlsx");
+
+Close(dt2);
+Close(dt3);
