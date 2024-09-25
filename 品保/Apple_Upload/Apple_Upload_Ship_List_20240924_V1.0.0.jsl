@@ -72,13 +72,14 @@ If( N Cols( dt ) != 17,
 dt << Delete Columns([4 14 16 17]);
 
 // 新增 15 列用于存放数据
-For( i = 1, i <= 15, i++,
+For( i = 1, i <= 16, i++,
 	New Column( Char( i ), Character, "Nominal",Set Selected )
 );
 // 移动列
 dt << Move Selected Columns( {:"1"n, :"2"n, :"3"n, :"4"n, :"5"n}, after( :BR_TOOL ) );
 dt << Move Selected Columns( {:"6"n, :"7"n, :"8"n, :"9"n, :"10"n}, after( :SR_TOOL ) );
 dt << Move Selected Columns( {:"11"n, :"12"n, :"13"n, :"14"n, :"15"n}, after( :SP_TOOL ) );
+dt << Move Selected Columns( {:"16"n}, after( :JRS_ID ) );
 // 截取字符串
 dt:"1"n << Set Formula( Substr( :BR_TOOL, 8, 3 ) );
 dt:"2"n << Set Formula( Substr( :BR_TOOL, 22, 1 ) );
@@ -98,7 +99,7 @@ NewCols = {
 "BR_MOLDING_DC", "BR_MOLDING_MACHINE", "BR_SILICONE_TRACE_ID", "SR_TRACE_ID", "SR_TOOL",
 "SR_BLOCK", "SR_MOLDING_DC", "SR_MOLDING_MACHINE", "SR_SILICONE_TRACE_ID", "SP_TRACE_ID",
 "SP_TOOL", "SP_BLOCK", "SP_MOLDING_DC", "SP_MOLDING_MACHINE", "SP_SILICONE_TRACE_ID", "RACK",
-"OVEN", "AOI_ID", "JRS_ID", "PACK_ID", "GLUE_BATCH"
+"OVEN", "AOI_ID", "GNG_ID", "JRS_ID","PACK_ID", "GLUE_BATCH"
 };
 	
 For( 

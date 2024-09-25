@@ -1,0 +1,144 @@
+﻿//!
+
+// 新增 Apple JRS 上传格式脚本
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+//================================================================
+
+// 创建一个窗体函数用来调用
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+// 引用路径
+
+Sampledir = "$Desktop/Sample_Directory/";
+Appleupdir = "$Desktop/Sample_Directory/Apple_Upload/";
+
+// Apple 模版路径
+SampleFile = "$Desktop/Sample_Directory/Apple_Upload/Apple_JRS_Sample.jmp";
+// 机种规格路径
+SpecFile = "$Desktop/Sample_Directory/Apple_Upload/JRS_Sample_Spec.jmp";
+
+//================================================================
+
+
+// 判断桌面模版文件夹是否存在，不存在就新建
+
+If(Directory Exists(Sampledir) == 0,
+	Create Directory(Sampledir);
+	Create Directory(Appleupdir);
+);
+
+
+// 选择文件夹
+FilePath = Pick Directory( "选择追溯信息文件夹" );
+If(FilePath == "",
+	NwFunc("未选择文件夹，请重新选择！");
+	Stop();
+);
+
+// 判断文件名
+filelist = Files In Directory( FilePath );
+filenames = {};
+For( i = 1, i <= N Items( filelist ), i++,
+	Insert Into( filenames, Right( filelist[i], 3 ) )
+);
+filenames = Associative Array( filenames ) << get keys;
+
+If( N Items( filenames ) > 1 | filenames[1] != "jmp",
+	NwFunc( "文件格式不一致，只支持 .jmp 格式。" );
+	Stop();
+);
+
+// 导入文件
+mfi = Multiple File Import();
+mfi << Set Folder( FilePath );
+mfi << Set Charset( "gb2312" );
+mfi << Set Add File Name Column( 0 );
+mfi << Import Data();
+// 判断表格式是否一致
+TablesNum = N Table();
+If( TablesNum > 1,
+	NwFunc( "原始数据格式不一致，请检查！" );
+	Stop();
+);
+// 设置为活动表
+dt = Current Data Table();
+// 改表名称
+dt << Set Name( "IPQC_Data" );
+
+// 判断原始数据是否正确
+If( N Cols( dt ) != 41,
+	NwFunc( "原始数据格式不正确，原始数据必须 41 列！" );
+	Stop();
+);
+
+// 删除多余的列
+dt << Delete Columns( 35 :: 41 );
+dt << Delete Columns( 9 :: 17 );
+dt << Delete Columns( 1 :: 7 );
+
+// 修改列名为 JRS 列名
+
+NewCols = {"KB_Type", "SN", "Key_Number", "Key_Name", "Key_Type",
+"Key_Size", "Dome_Size", "Peak_Force_gf", "Peak_Travel_mm",
+"Bottom_Force_gf", "Bottom_Travel_mm", "Click_Ratio_pct",
+"Travel_160gf_mm", "Make_Force_gf", "Make_Point_mm", "160T_PT",
+"PF_MF", "MT_PT"};
+
+For( i = 1, i <= N Items( NewCols ), i++,
+	Column( dt, i ) << set name( NewCols[i] )
+);
+
+// 打开上传数据的模版
+Try(dt1 = Open(SampleFile,Invisible),Throw("打开 Apple_JRS_Sample.jmp 模版失败，请检查文件存放位置。"));
+// 拼接表并且关闭 IPQC 数据表
+dt1 << Concatenate( dt, Append to first table );
+Close( dt, No Save );
+
+// 打开规格表
+Try(dt2 = Open(SpecFile,Invisible),Throw("打开 JRS_Sample_Spec.jmp 规格表失败，请检查文件存放位置。"));
+
+// 更新规格到数据表
+dt1 << Update(
+	With( dt2 ),
+	Match Columns( :Key_Number = :Key_Number, :KB_Type = :KB_Type ),
+	Add Columns from Update Table( None ),
+	Replace Columns in Main Table(
+		:PF_USL, :PF_LSL, :PT_USL, :PT_LSL, :BF_USL, :BF_LSL, :BT_USL, :BT_LSL,
+		:CR_USL, :CR_LSL, :"160T_USL"n, :"160T_LSL"n, :MF_USL, :MF_LSL, :PF_MF_USL,
+		:PF_MF_LSL, :"160T_PT_USL"n, :"160T_PT_LSL"n, :MT_PT_USL, :MT_PT_LSL
+	)
+);
+
+// 删除脚本列表
+Script_List = dt1 << Get Table Script Names;
+dt1 << Delete Scripts( Script_List );
+
+// 判断是否有空数据
+misscounts = N Missing( dt1:PF_USL << Get Values );
+If( misscounts > 0,
+	dt1 << Show Window( 1 );
+	NwFunc( "PF_USL 有规格有空值，请检查规格表是否包含此机种！" );
+	Close(dt2,No Save);
+	Stop();
+);
+
+dt1 << Save AS( "$Desktop/" || "IPQC_Data_" || Char( Today() ) || ".csv" );
+
+Close(dt1,No Save);
+Close(dt2,No Save);
