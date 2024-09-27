@@ -53,6 +53,10 @@ If(FilePath == "",
 
 // 判断文件名
 filelist = Files In Directory( FilePath );
+If( filelist == {},
+	NwFunc( "文件夹为空目录，请检查。" );
+	Stop();
+);
 filenames = {};
 For( i = 1, i <= N Items( filelist ), i++,
 	Insert Into( filenames, Right( filelist[i], 3 ) )
@@ -138,7 +142,7 @@ If( misscounts > 0,
 	Stop();
 );
 
-dt1 << Save AS( "$Desktop/" || "IPQC_Data_" || Char( Today() ) || ".csv" );
+dt1 << Save AS( "$Desktop/" || "IPQC_JRS_Data_" || Format( Today(), "yyyymmdd" )|| Char( Today() )  || "_domejrs.csv" );
 
 Close(dt1,No Save);
 Close(dt2,No Save);

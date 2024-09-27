@@ -33,6 +33,10 @@ If(FilePath == "",
 
 // 判断文件名
 filelist = Files In Directory( FilePath );
+If( filelist == {},
+	NwFunc( "文件夹为空目录，请检查。" );
+	Stop();
+);
 filenames = {};
 For( i = 1, i <= N Items( filelist ), i++,
 	Insert Into( filenames, Right( filelist[i], 4 ) )
@@ -111,6 +115,6 @@ For(
 dt:ATTACH_DATE << Format( "m/d/y h:m", 23 );
 
 // 保存数据
-dt << Save( "$Desktop/" || "Ship_Data_" || Char( Today() ) || ".csv" );
+dt << Save( "$Desktop/" || "Ship_Data_" || Format( Today(), "yyyymmdd" ) || Char( Today() ) || "_dometraceability.csv" );
 
 Close(dt,No Save);
