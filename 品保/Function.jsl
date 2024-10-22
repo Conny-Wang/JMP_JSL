@@ -1,0 +1,54 @@
+﻿//
+
+//================================================================
+
+// 创建一个窗体函数用来调用
+nwfunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+
+// 创建一个函数用于重命名文件后缀
+files_convert_suffix= Function( {file_name,suffix = "."}, 
+	
+	/*filelist = {};
+	// 获取文件名后缀
+	For( i = 1, i <= N Items( filenames ), i++,
+		Insert Into( filelist, Item( 2, file_name[i], "." ) )
+	);
+	// 后缀去重
+	filelist = Associative Array( filelist ) << get keys;
+	// 判断后缀名是否为 xls
+	If( N Items( filelist ) > 1 | filelist[1] != "xls",
+		NwFunc( "文件格式不一致，只支持 xls" );
+		Stop();
+	);*/
+
+	// 重命名为 xlsx 格式
+	For Each( {value}, file_name, Rename File( files_path || value, Item( 1, value, "." ) || "." || suffix ) );
+	
+);
+
+//================================================================
+
+// 导入文件
+mfifunc = Function({folder_name,addfilename = 0,filter_file = "*.*"},
+	mfi = Multiple File Import();
+	mfi << Set Folder( folder_name );
+	mfi << Set Name Filter( filter_file );
+	mfi << Set Name Enable( 1 );
+	mfi <<Set Add File Name Column( addfilename );
+	mfi <<Set Charset( "gb2312" );
+);
+
+//dt = Try( mfifunc( "C:\Users\conny\Desktop\SE_Data", 0 , "*.*" ) << Import Data(), Throw( "参数使用错误" ) );
+
+//================================================================
+
+
+

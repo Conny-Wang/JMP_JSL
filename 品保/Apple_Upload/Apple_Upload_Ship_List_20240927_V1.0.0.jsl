@@ -111,6 +111,8 @@ For(
 	Column( dt, i ) << set name( NewCols[i] )
 );
 
+// 清空备注栏信息
+
 // 修改时间列
 dt:ATTACH_DATE << Format( "m/d/y h:m", 23 );
 
