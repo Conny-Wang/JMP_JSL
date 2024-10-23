@@ -2,7 +2,6 @@
 
 
 
-
 //================================================================
 
 // 2024/10/22 新增自定义函数库
@@ -12,7 +11,10 @@
 
 //================================================================
 
-// 创建一个窗体函数用来调用
+// 测试 nwfunc 函数
+// nwfunc("提示信息！");
+
+// 创建一个警告窗体函数用来调用
 nwfunc = Function({tips},
 	New Window("警告",
 		<<Modal,
@@ -21,8 +23,12 @@ nwfunc = Function({tips},
 	)
 );
 
-// nwfunc("提示信息！");
-================================================================
+
+//================================================================
+
+
+// 测试 files_convert_suffix 函数
+// files_convert_suffix("./OQC_Data_JMP/","csv");
 
 // 创建一个函数用于重命名文件后缀
 files_convert_suffix= Function( {files_path,suffix = "."}, 
@@ -52,9 +58,11 @@ files_convert_suffix= Function( {files_path,suffix = "."},
 	
 );
 
-// files_convert_suffix("./OQC_Data_JMP/","csv");
 
 //================================================================
+
+// 测试 mfifunc 函数
+// dt = Try( mfifunc( "C:\Users\conny\Desktop\SE_Data", 0 , "*.*" ) << Import Data(), Throw( "参数使用错误" ) );
 
 // 导入文件
 mfifunc = Function({folder_name,addfilename = 0,filter_file = "*.*"},
@@ -66,7 +74,6 @@ mfifunc = Function({folder_name,addfilename = 0,filter_file = "*.*"},
 	mfi <<Set Charset( "gb2312" );
 );
 
-// dt = Try( mfifunc( "C:\Users\conny\Desktop\SE_Data", 0 , "*.*" ) << Import Data(), Throw( "参数使用错误" ) );
 
 //================================================================
 
