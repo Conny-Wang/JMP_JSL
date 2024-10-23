@@ -1,5 +1,15 @@
 ﻿//
 
+
+
+
+//================================================================
+
+// 2024/10/22 新增自定义函数库
+// 目前已经更新三个函数
+// 引入自定义函数库
+// Include("./Function.jsl");
+
 //================================================================
 
 // 创建一个窗体函数用来调用
@@ -11,10 +21,18 @@ nwfunc = Function({tips},
 	)
 );
 
-//================================================================
+// nwfunc("提示信息！");
+================================================================
 
 // 创建一个函数用于重命名文件后缀
-files_convert_suffix= Function( {file_name,suffix = "."}, 
+files_convert_suffix= Function( {files_path,suffix = "."}, 
+	
+	
+	file_name = Files In Directory( files_path, recursive( 1 ) );
+	If( file_name == {},
+		NwFunc( "文件夹为空，请检查！" );
+		Stop();
+	);
 	
 	/*filelist = {};
 	// 获取文件名后缀
@@ -34,6 +52,8 @@ files_convert_suffix= Function( {file_name,suffix = "."},
 	
 );
 
+// files_convert_suffix("./OQC_Data_JMP/","csv");
+
 //================================================================
 
 // 导入文件
@@ -46,7 +66,7 @@ mfifunc = Function({folder_name,addfilename = 0,filter_file = "*.*"},
 	mfi <<Set Charset( "gb2312" );
 );
 
-//dt = Try( mfifunc( "C:\Users\conny\Desktop\SE_Data", 0 , "*.*" ) << Import Data(), Throw( "参数使用错误" ) );
+// dt = Try( mfifunc( "C:\Users\conny\Desktop\SE_Data", 0 , "*.*" ) << Import Data(), Throw( "参数使用错误" ) );
 
 //================================================================
 
