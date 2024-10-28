@@ -4,8 +4,7 @@
 
 //================================================================
 
-// 2024/10/22 新增自定义函数库
-// 目前已经更新三个函数
+// 2024/10/28 新增压缩文件函数
 // 引入自定义函数库
 // Include("./Function.jsl");
 
@@ -77,5 +76,65 @@ mfifunc = Function({folder_name,addfilename = 0,filter_file = "*.*"},
 
 //================================================================
 
+// 测试 zipFolder 函数
+/* folder = "C:\Users\conny\Desktop\123pan\"; // 需要压缩的文件夹
+ zipfile = folder || "zipfile.zip"; // 压缩后文件存放路径和名称
+ zipFolder(folder,zipfile);*/
 
+// 压缩文件为 zip 格式
+zipFolder = Function( {folderToZip, zipFileLoc, overwriteFile = 1, recursive = 1},
+	{Default Local}, 
+	
+	// Convert the filepath to the OS and add a trailing slash if one is missing
+	If( Host is( "Windows" ),
+		folderToZip = Convert File Path( folderToZip, "Windows" );
+		zipFileLoc = Convert File Path( zipFileLoc, "Windows" );
+		If( Substr( folderToZip, -1 ) != "\",
+			folderToZip = Concat( folderToZip, "\" )
+		);
+	,
+		folderToZip = Convert File Path( folderToZip, "posix" );
+		zipFileLoc = Convert File Path( zipFileLoc, "posix" );
+		If( Substr( folderToZip, -1 ) != "/",
+			folderToZip = Concat( folderToZip, "/" )
+		);
+	);
+	
+	// Check to see if the file exst
+	If( File Exists( zipFileLoc ),
+		
+		Match( overwriteFile,
+			0, // if we should not overwrite, write to the log and return 0
+				Write( "\!NFile already exists" );
+				Return( 0 );
+		,
+			1, // else just delete the existing file
+				Delete File( zipFileLoc ),
+		);
+	);
+	
+	// create the zipfile and ZipArchive object (za)
+	za = Open( zipFileLoc, zip );
+	
+	// get our list of files to compress, based on recursive setting
+	If( recursive == 1,
+		dirlist = Files In Directory( folderToZip, "recursive" ),
+		dirlist = Files In Directory( folderToZip )
+	);	
+	
+	// loop through each file
+	For( iFile = 1, iFile <= N Items( dirlist ), iFile++, 
+		
+		// read in the uncompressed file as a blob
+		tmpBlob = Load Text File( folderToZip || dirlist[iFile], blob );
+		
+		// write compressed file to the ZipArchive object
+		za << Write( dirlist[iFile], tmpBlob );
+	);
+	
+	Return( 1 );
+);
+
+
+//================================================================
 
