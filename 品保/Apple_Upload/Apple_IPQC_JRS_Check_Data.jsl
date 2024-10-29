@@ -1,0 +1,83 @@
+﻿//!
+
+
+Clear Globals();
+Clear Symbols();
+
+
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+dt = Current Data Table();
+If( Is Empty( dt ),
+	NwFunc( "未打开数据表。" );
+	Stop();
+);
+resultcols = {"PF_USL_Result", "PF_LSL_Result", "PT_USL_Result", "PT_LSL_Result",
+"BF_USL_Result", "BF_LSL_Result", "BT_USL_Result", "BT_LSL_Result", "CR_USL_Result",
+"CR_LSL_Result", "160T_USL_Result", "160T_LSL_Result", "MF_USL_Result",
+"MF_LSL_Result", "PF_MF_USL_Result", "PF_MF_LSL_Result", "160T_PT_USL_Result",
+"160T_PT_LSL_Result", "MT_PT_USL_Result", "MT_PT_LSL_Result"};
+
+resultcols2 = {"PF_USL_Result2", "PF_LSL_Result2", "PT_USL_Result2", "PT_LSL_Result2",
+"BF_USL_Result2", "BF_LSL_Result2", "BT_USL_Result2", "BT_LSL_Result2", "CR_USL_Result2",
+"CR_LSL_Result2", "160T_USL_Result2", "160T_LSL_Result2", "MF_USL_Result2",
+"MF_LSL_Result2", "PF_MF_USL_Result2", "PF_MF_LSL_Result2", "160T_PT_USL_Result2",
+"160T_PT_LSL_Result2", "MT_PT_USL_Result2", "MT_PT_LSL_Result2"};
+
+// PF PT BF BT CR 160T MF PF-MF 160T-PT MT-PT 
+//colnums = [19 19 20 20 24 24 25 25 29 29 38 38 33 33 82 82 100 100 84 84 ];
+colnums = [19 20 24 25 29 38 33 82 100 84 ];
+
+N Items( resultcols );
+
+
+For( i = 1, i <= N Items( resultcols ), i++,
+	
+	New Column( resultcols[i],
+		"Numeric",
+		"Continuous"
+	);
+	
+);
+
+
+
+colusl = [106 108 110 112 114 116 118 120 122 124];
+collsl = [106 108 110 112 114 116 118 120 122 124] + [1 1 1 1 1 1 1 1 1 1];
+colsuslres = [126 128 130 132 134 136 138 140 142 144];
+colslslres = [126 128 130 132 134 136 138 140 142 144] + [1 1 1 1 1 1 1 1 1 1];
+
+dt[0, colsuslres] = dt[0, colusl] - dt[0, colnums];
+dt[0, colslslres] = dt[0, colnums] - dt[0, collsl];
+
+
+For( i = 1, i <= N Items( resultcols2 ), i++,
+	
+	New Column( resultcols2[i],
+		"Character",
+		"Nominal" 
+	);
+	fm = Eval Expr(
+	Expr(
+		Column( dt, resultcols2[i] )
+	) << set Formula( If( Expr( As Name( resultcols[i] ) ) > 0, "OK", "NG" ) )
+);
+	fm;
+);
+
+
+
+
+dtmin = Min( dt[0, 126 :: 145] );
+
+If(  dtmin < 0,
+	NwFunc("有超规格，请检查！");
+	Stop(),
+	NwFunc("数据OK")
+);
