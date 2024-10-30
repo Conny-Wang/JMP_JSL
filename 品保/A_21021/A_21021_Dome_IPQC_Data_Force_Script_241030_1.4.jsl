@@ -1,5 +1,5 @@
 ﻿//!
-//更新日期 2024/08/20 新增桌面保存路径
+//更新日期 2024/10/30 新增 21021A02 判断
 
 
 NW = Expr(
@@ -885,6 +885,16 @@ L_PFmean_Max = Col Maximum( :PFmean );
 L_PFmean_Min = Col Minimum(:PFmean);
 
 //大 Dome 规格判断
+//判断 A01 还是 A02
+
+If(Tool_A == "21021A02",
+	L_LSL_PF = L_LSL_PF_A02;
+	L_USL_PF = L_USL_PF_A02;
+	L_LSL_PFmean = L_LSL_PFmean_A02;
+	L_USL_PFmean = L_USL_PFmean_A02;
+	L_LSL_CR = L_LSL_CR_A02;
+	L_USL_CR = L_USL_CR_A02;
+);
 
 //PF
 If(
