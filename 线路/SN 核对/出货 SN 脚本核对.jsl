@@ -1,0 +1,46 @@
+﻿//
+
+
+// 创建一个窗体函数用来调用
+NwFunc = Function( {tips},
+	New Window( "警告", <<Modal, Text Box( tips ), Button Box( "OK" ), )
+);
+
+
+dt = Current Data Table();
+
+If( Is Empty( dt ),
+	NwFunc( "核对数据模版未打开" );
+	Stop();
+);
+
+ngsn = Associative Array( dt[0, 2] );
+shipsn = Associative Array( dt[0, 1] );
+
+ngsn << Remove( ["" => 1] );
+shipsn << Remove( ["" => 1] );
+
+If( N Items( ngsn ) == 0 | N Items( shipsn ) == 0,
+	NwFunc( "请放入 SN " );
+	Stop();
+);
+
+//ngsn << get keys;
+//shipsn << get keys;
+
+result = {};
+For( i = 1, i <= N Items( ngsn ), i++,
+	temp = ngsn << get keys;
+	Insert Into( result, shipsn << Contains(temp[i]  ) )
+);
+
+// For Each( {value}, ngsn, Insert Into( result, shipsn << Contains( value ) ) );
+
+result = Sort Descending(result);
+
+If( result[1] == 1,
+	NwFunc( "NG 数据包含在出货 SN 中 请检查" ),
+	NwFunc( "出货核对 OK " )
+	
+);
+
