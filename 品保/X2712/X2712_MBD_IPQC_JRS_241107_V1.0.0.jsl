@@ -1,0 +1,278 @@
+﻿//
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+//================================================================
+// 引用路径
+// 引入自定义函数库
+Include("./Sample_Directory/Function.jsl");
+
+// IPQC 信息对照表
+ipqcsource = "$Desktop/MB+D IPQC report source.jmp";
+
+// 规格表
+Spec_X2712 = "$Desktop/Sample_Directory/Sunrex/X2712/Spec_X2712.jmp";
+
+// 公盘保存路径
+publicpath = "\\192.168.0.245\品保课\A产品数据\粘贴IPQC数据\MB+D IPQC report_暂存\X2712_MB+D_IPQC_Data_Force\";
+
+// 桌面保存路径
+deskpath = "$Desktop/X2712_MB+D_IPQC_Data_Force/";
+
+// 保存文件名
+savefilename = "X2712 IRI Dome attach force IPQC data ";
+
+//================================================================
+
+// 接收日期和时间
+infonw = New Window( "请输入信息：",
+	<<Modal,
+	<<Return Result,
+	Text Box( "输入巡回日期：" ),
+	datebox = Text Edit Box( "D", <<set width( 100 ) ),
+	Text Box( "输入巡回时间：" ),
+	timebox = Text Edit Box( "T", <<set width( 100 ) ),
+	Button Box( "OK" ),
+	Button Box( "Cancel" )
+);
+
+If( infonw["button"] == 1,
+	datevalue = infonw["datebox"];
+	timevalue = infonw["timebox"];
+,
+	Stop()
+);
+
+Print( datevalue, timevalue );
+
+/*datevalue = "D241107";
+timevalue = "T10:00";*/
+
+If( Length( datevalue ) != 7 | Length( timevalue ) != 6,
+	nwfunc( "输入日期或者时间有误！" );
+	Stop();
+);
+
+//================================================================
+
+
+// 选择文件夹
+files_path = Pick Directory( "请选择原始数据文件夹" );
+If( files_path == "", 
+	NwFunc("未选择文件夹，请重新选择！");
+	Stop();	
+);
+// 获取目录文件名
+filenames = Files In Directory( files_path, recursive( 1 ) );
+If( filenames == {}, 
+	NwFunc("文件夹为空，请检查！");
+	Stop();	
+);
+// 合并数据
+Try( mfifunc( files_path, 1 , "*.csv" ) << Import Data(), Throw( "参数使用错误,\!r请检查!" ) );
+
+// 判断活动表
+dt = Current Data Table();
+If( Is Empty( dt ) | N Table() > 1,
+	NwFunc( "数据表为空或者合并数据格式不一致超2张表！" );
+	Stop();
+);
+
+// 需要保留的列
+colnum = [2 3 7 8 11 12 13 19 20 24 25 29 33 34 38 82 84 98 100 106];
+// 删除多余的列
+dt << Select Columns (colnum) << Invert Column Selection;
+dt << Delete Columns;
+
+// 新建 20 列
+For( i = 1, i <= 22, i++,
+	dt << New Column( "newcol" || Char( i ), Character, Nominal )
+);
+
+// 移动列
+dt << Move Selected Columns(
+	{:newcol1, :newcol2, :newcol3, :newcol4, :newcol5, :newcol6, :newcol7, :newcol8, :newcol9, :newcol10,
+	:newcol11, :newcol12, :newcol13, :newcol14, :newcol15, :newcol16, :Station_ID},
+	To First
+);
+
+dt << Move Selected Columns( {:Travel_160gf_mm}, after( :Click_Ratio_pct ) );
+dt << Move Selected Columns( {:"160T_PT"n}, after( :Make_Point_mm ) );
+dt << Move Selected Columns( {:File Name}, To Last );
+
+// 重命名列名
+colnamelist = {"Vendor", "Line No.", "customer", "stage", "Large Tool", "Small Tool", "MB vendor", "Assy", "data type", "Test Date",
+"Test Time", "Glue Type", "Glue Batch", "Glue Density", "Glue Viscosity", "force Test Equipment", "Station_ID", "SN", "Key NO.",
+"KEY Name", "Key_Type", "Key_Size", "Dome Size", "Peak Force", "Peak Travel", "Bottom Force", "Bottom Travel", "Click Ratio",
+"160g-Travel", "Make  Force", "Make Travel", "160T-PT", "PF-MF", "MT-PT", "MFaverage_1x1", "Special Tool", "LargeTool Slide",
+"SmallTool Slide", "PF_mean_By lot", "Space_CR_mean_By lot", "Remark"};
+
+For( i = 1, i <= N Items( colnamelist ), i++,
+	Column( dt, i ) << set name( colnamelist[i] )
+);
+
+// 设置固定值
+dt[0,1] = "IRI";
+dt[0,10] = datevalue;
+dt[0,11] = timevalue;
+dt[0,12] = 9088;
+dt[0,16] = "JRS10mm";
+
+//设置线体
+dt:Line No. << Set Formula(
+	If( Length( Item( 4, :File Name, "L-" ) ) == 1,
+		"L0" || Item( 4, :File Name, "L-" ),
+		"L" || Item( 4, :File Name, "L-" )
+	)
+);
+// 设置机种
+dt:Assy << Set Formula( Uppercase( Item( 1, :File Name, "-" ) || " " || Item( 2, :File Name, "-" ) ) );
+
+// 打开生产信息表
+Try(
+	dt2 = Open( ipqcsource,Invisible ),
+	Throw( "打开生产信息表失败,请检查桌面文件是否存在" );
+	Stop();
+);
+
+
+// 匹配生产信息表
+dt << Update(
+	With( dt2 ),
+	Match Columns( :Line No. = :Line No., :Assy = :Assy, :Test Date = :Test Date, :Test Time = :Test Time ),
+	Add Columns from Update Table( None ),
+	Replace Columns in Main Table(
+		:customer, :stage, :Large Tool, :Small Tool, :MB vendor, 
+		:data type, :Glue Batch, :Glue Density, :Glue Viscosity, 
+		:Special Tool,:LargeTool Slide, :SmallTool Slide, :Remark
+	)
+);
+// 更新完毕关闭生产信息表
+Close(dt2,No Save);
+
+// 判断更新后的数据表是否有空值
+If( Col N Missing( dt:customer ) != 0,
+	nwfunc( "更新客户有空值，请检查！" );
+	Stop();
+);
+
+
+// 更新列为数字列
+colnum = [12 14 15 40 39];
+For( i = 1, i <= 5, i++,
+	Column( dt, colnum[i] ) << Data Type( Numeric ) << Set Modeling Type( "Continuous" )
+);
+
+
+For Each Row( :PF_mean_By lot = Round( Col Mean( :Peak Force, :Assy, :Line No., :Test Date, :Test Time, :Dome Size ), 4 ));
+For Each Row( :Space_CR_mean_By lot = Round( Col Mean( :Click Ratio, :Assy, :Line No., :Test Date, :Test Time, :Dome Size ), 4 ) );
+
+// 查找空格键行数并修改 Dome Size 为 SP
+sprows = dt << Get Rows Where( :Key_Type == "P" );
+dt:Dome Size[sprows] = "SP";
+
+// 删除公式列和文件名和脚本名
+dt:Line No. << Delete Formula;
+dt:Assy << Delete Formula;
+dt << Delete Columns(42);
+Scriptlist = dt << Get Table Script Names;
+dt << Delete Scripts( Scriptlist );
+
+// 测试项目列数
+colnums = 24::35;
+
+// 获取 大 Dome 行数，判断 PFMean 和 CRMean
+lrows = dt << Get Rows Where( :Dome Size == "Large" );
+srows = dt << Get Rows Where( :Dome Size == "Small" );
+
+pfmeanmax = Max( :PF_mean_By lot[lrows] );
+pfmeanmin = Min( :PF_mean_By lot[lrows] );
+crmax = Max( :Space_CR_mean_By lot[lrows] );
+crmin = Min( :Space_CR_mean_By lot[lrows] );
+sppfmax = Max( :Peak Force[sprows] );
+sppfmin = Min( :Peak Force[sprows] );
+
+// 创建 2 个矩阵存放最大值和最小值
+resultvaluesmax = [];
+resultvaluesmin = [];
+For Each( {value}, colnums, Insert Into( resultvaluesmax, Max( dt[0, value][lrows] ) ) );
+For Each( {value}, colnums, Insert Into( resultvaluesmax, Max( dt[0, value][srows] ) ) );
+
+For Each( {value}, colnums, Insert Into( resultvaluesmin, Min( dt[0, value][lrows] ) ) );
+For Each( {value}, colnums, Insert Into( resultvaluesmin, Min( dt[0, value][srows] ) ) );
+
+// 插入
+Insert Into(resultvaluesmax,pfmeanmax);
+Insert Into(resultvaluesmax,crmax);
+Insert Into(resultvaluesmax,sppfmax);
+Insert Into(resultvaluesmin,pfmeanmin);
+Insert Into(resultvaluesmin,crmin);
+Insert Into(resultvaluesmin,sppfmin);
+
+
+Print(resultvaluesmax);
+Print(resultvaluesmin);
+// 打开规格表
+
+Try(
+	dt3 = Open( Spec_X2712,Invisible ),
+	Throw( "打开生产信息表失败,请检查桌面文件是否存在" || Spec_X2712 );
+	Stop();
+);
+
+
+// 创建一个空 List 来存放结果
+resultlist = {};
+
+// 判断上限并存放结果
+restultmax = resultvaluesmax > dt3[0,2];
+For( i = 1, i <= N Items( restultmax ), i++,
+	If( restultmax[i] == 1,
+		 Insert Into(resultlist,dt3[0, 1][i] || " 超上限 最大值：" || Char( resultvaluesmax[i] )|| "\!r" )
+	)
+);
+
+// 判断下限并存放结果
+restultmin = resultvaluesmin < dt3[0, 3];
+For( i = 1, i <= N Items( restultmin ), i++,
+	If( restultmin[i] == 1,
+		Insert Into( resultlist, dt3[0, 1][i] || " 超下限 最小值：" || Char( resultvaluesmin[i] ) || "\!r" )
+	)
+);
+
+// 关闭规格表
+Close(dt3 , No Save);
+
+// 结果弹窗显示
+If( resultlist != {},
+	nwfunc( resultlist ),
+	nwfunc( "全部测试 OK" )
+);
+
+// 保存数据
+timestr = Char( Today() );
+
+// 桌面创建保存文件夹
+If( Is Directory( deskpath ) == 0,
+	Create Directory( deskpath )
+);
+
+// 保存文件
+If( resultlist != {},
+	Try( dt << Save As( publicpath || savefilename || datevalue || " " || Item( 1, timevalue, ":" ) || " " || timestr || " NG.jmp" ) );
+	dt << Save As( deskpath || savefilename || datevalue || " " || Item( 1, timevalue, ":" ) || " " || timestr || " NG.jmp" );
+, 
+	
+	Try( dt << Save As( publicpath || savefilename || datevalue || " " || Item( 1, timevalue, ":" ) || " " || timestr || " OK.jmp" ) );
+	dt << Save As( deskpath || savefilename || datevalue || " " || Item( 1, timevalue, ":" ) || " " || timestr || " OK.jmp" );
+	
+);
+
+Close(dt);
