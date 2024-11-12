@@ -149,13 +149,13 @@ ymdinfo = Expr(
  
 //================================================================
 
-// 删除文件夹文
+// 删除文件夹文件
 
 // 测试
 /*filepath = "C:\Users\conny\Desktop\OQC_Data_JMP\";
 deletefiles(filepath);*/
 
-deletefiles = Function( {filepath},
+deletefiles = Function( {filepath}, 
 
 	filelist = Files In Directory( filepath, recursive( 1 ) );
 	If( filelist == {},
@@ -163,7 +163,7 @@ deletefiles = Function( {filepath},
 		Stop();
 	);
 	
-	For Each( {value}, filelist, Delete File( filepath || value ) )
+	For Each( {value}, filelist, Delete File( filepath || value ) );
 	
 );
 
