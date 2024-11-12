@@ -4,7 +4,7 @@
 
 //================================================================
 
-// 2024/10/28 新增压缩文件函数
+// 2024/11/12 新增删除文件函数
 // 引入自定义函数库
 // Include("./Function.jsl");
 
@@ -137,4 +137,33 @@ zipFolder = Function( {folderToZip, zipFileLoc, overwriteFile = 1, recursive = 1
 
 
 //================================================================
+
+// 时间戳
+
+ymdinfo = Expr(
+	Format( Today(), "Format Pattern", "<YY><MM><DD> <hh24><mm><ss>" )
+);
+ 
+ 
+
+ 
+//================================================================
+
+// 删除文件夹文
+
+// 测试
+/*filepath = "C:\Users\conny\Desktop\OQC_Data_JMP\";
+deletefiles(filepath);*/
+
+deletefiles = Function( {filepath},
+
+	filelist = Files In Directory( filepath, recursive( 1 ) );
+	If( filelist == {},
+		NwFunc( "文件夹为空，请检查！" );
+		Stop();
+	);
+	
+	For Each( {value}, filelist, Delete File( filepath || value ) )
+	
+);
 
