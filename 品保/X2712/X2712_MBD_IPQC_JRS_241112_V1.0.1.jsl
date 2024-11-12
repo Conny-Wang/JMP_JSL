@@ -1,4 +1,7 @@
-﻿//
+﻿//!
+
+
+// 2024/11/12 更新删除原始数据
 
 //================================================================
 
@@ -274,5 +277,10 @@ If( resultlist != {},
 	dt << Save As( deskpath || savefilename || datevalue || " " || Item( 1, timevalue, ":" ) || " " || timestr || " OK.jmp" );
 	
 );
+
+
+// 删除原始数据
+For Each( {value}, filenames, Delete File( files_path|| value ) );
+
 
 Close(dt);
