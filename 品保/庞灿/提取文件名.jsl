@@ -2,8 +2,16 @@
 
 path = Pick Directory( "选择文件夹", "$Desktop" );
 
-filenames = Files In Directory( path,recursive( 1 ));
-list = "";
-For Each( {value}, filenames, Insert Into( list, value || "\!n" ) );
+If( path == "", Stop() );
+filenames = Files In Directory( path, recursive( 1 ) );
 
-Save Text File( "$Desktop/文件名提取.txt", list );
+dt = New Table( "FileName",
+	New Column( "FileName", Character, Nominal, Set Values( filenames ) )
+);
+
+dt << Text to Columns( columns( :FileName ), Delimiters( "." ) );
+
+//list = "";
+//For Each( {value}, filenames, Insert Into( list, value || "\!n" ) );
+
+//Save Text File( "$Desktop/文件名提取.txt", list );
