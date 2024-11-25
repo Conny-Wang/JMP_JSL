@@ -1,6 +1,7 @@
 ﻿//!
-//更新日期 2024/08/20 新增桌面保存路径
-
+//更新日期 2024/11/25 新增 B-X 规格
+Clear Symbols();
+Clear Globals();
 
 NW = Expr(
 
@@ -685,6 +686,13 @@ S_Offset_Max = Col Maximum( :Offset );
 
 //小 Dome 规格判断
 
+//判断 B-X FAI
+
+If(Tool_B == "21021BX",
+	S_LSL_FAI_3 = S_LSL_FAI_3_BX	
+);
+
+
 //FAI1
 If(
 	S_FAI1_Max > S_USL_FAI_1,
@@ -1246,7 +1254,15 @@ S_FAI3_Min = Col Minimum(:SPC C);
 
 S_Offset_Max = Col Maximum( :SPC G);
 
-//大 Dome 规格判断
+//小 Dome 规格判断
+
+
+//判断 B-X SPC
+
+If(Tool_B == "21021BX",
+	S_LSL_FAI_3 = S_LSL_FAI_3_BX	
+);
+
 
 //FAI1
 If(
