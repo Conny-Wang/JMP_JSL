@@ -53,6 +53,7 @@ NW << Set Window Size( 260, 600 ) << Move window( 1600, 100 );
 
  //引用规格表
 Include("./A_21021_Dome_IPQC_SPEC.jsl");
+tempFAI_3 = S_LSL_FAI_3;
 
  //==================================================
  //大 Dome 生成报表
@@ -688,9 +689,12 @@ S_Offset_Max = Col Maximum( :Offset );
 
 //判断 B-X FAI
 
-If(Tool_B == "21021BX",
-	S_LSL_FAI_3 = S_LSL_FAI_3_BX	
+
+If( Tool_B == "21021BX",
+	S_LSL_FAI_3 = S_LSL_FAI_3_BX,
+	S_LSL_FAI_3 = tempFAI_3
 );
+
 
 
 //FAI1
@@ -1259,8 +1263,9 @@ S_Offset_Max = Col Maximum( :SPC G);
 
 //判断 B-X SPC
 
-If(Tool_B == "21021BX",
-	S_LSL_FAI_3 = S_LSL_FAI_3_BX	
+If( Tool_B == "21021BX",
+	S_LSL_FAI_3 = S_LSL_FAI_3_BX,
+	S_LSL_FAI_3 = tempFAI_3
 );
 
 
