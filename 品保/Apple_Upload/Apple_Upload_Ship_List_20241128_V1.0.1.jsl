@@ -1,6 +1,6 @@
-﻿//
+﻿//!
 
-// 新增 Apple 上传格式脚本
+// 新增一列机种名称
 
 //================================================================
 
@@ -76,7 +76,7 @@ If( N Cols( dt ) != 17,
 dt << Delete Columns([4 14 16 17]);
 
 // 新增 15 列用于存放数据
-For( i = 1, i <= 16, i++,
+For( i = 1, i <= 17, i++,
 	New Column( Char( i ), Character, "Nominal",Set Selected )
 );
 // 移动列
@@ -84,6 +84,7 @@ dt << Move Selected Columns( {:"1"n, :"2"n, :"3"n, :"4"n, :"5"n}, after( :BR_TOO
 dt << Move Selected Columns( {:"6"n, :"7"n, :"8"n, :"9"n, :"10"n}, after( :SR_TOOL ) );
 dt << Move Selected Columns( {:"11"n, :"12"n, :"13"n, :"14"n, :"15"n}, after( :SP_TOOL ) );
 dt << Move Selected Columns( {:"16"n}, after( :JRS_ID ) );
+dt << Move Selected Columns( {:"17"n}, To First );
 // 截取字符串
 dt:"1"n << Set Formula( Substr( :BR_TOOL, 8, 3 ) );
 dt:"2"n << Set Formula( Substr( :BR_TOOL, 22, 1 ) );
@@ -97,9 +98,11 @@ dt:"11"n << Set Formula( Substr( :SP_TOOL, 8, 3 ) );
 dt:"12"n << Set Formula( Substr( :SP_TOOL, 22, 1 ) );
 dt:"13"n << Set Formula( Substr( :SP_TOOL, 15, 6 ) );
 
+dt:"17"n << Set Formula( Word( 1, :PACK_ID, "-" ) );
+
 // 修改列名称
 NewCols = {
-"MB_SN", "ATTACH_DATE", "ATTACH_LINE", "ATTACH_FIXTURE", "BR_TRACE_ID", "BR_TOOL", "BR_BLOCK",
+"Model","MB_SN", "ATTACH_DATE", "ATTACH_LINE", "ATTACH_FIXTURE", "BR_TRACE_ID", "BR_TOOL", "BR_BLOCK",
 "BR_MOLDING_DC", "BR_MOLDING_MACHINE", "BR_SILICONE_TRACE_ID", "SR_TRACE_ID", "SR_TOOL",
 "SR_BLOCK", "SR_MOLDING_DC", "SR_MOLDING_MACHINE", "SR_SILICONE_TRACE_ID", "SP_TRACE_ID",
 "SP_TOOL", "SP_BLOCK", "SP_MOLDING_DC", "SP_MOLDING_MACHINE", "SP_SILICONE_TRACE_ID", "RACK",
@@ -111,7 +114,9 @@ For(
 	Column( dt, i ) << set name( NewCols[i] )
 );
 
-// 清空备注栏信息
+
+// 修改领益箱号
+dt:Model << Value Labels( {"AMM" = "X3226", "BMM" = "X3226"} ) << Use Value Labels( 1 );
 
 // 修改时间列
 dt:ATTACH_DATE << Format( "m/d/y h:m", 23 );
