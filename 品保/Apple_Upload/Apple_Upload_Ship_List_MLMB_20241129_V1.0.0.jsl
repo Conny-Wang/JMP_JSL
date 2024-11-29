@@ -1,0 +1,193 @@
+﻿//!
+
+// 2024/11/29 新增 ML MB 追溯信息处理
+
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Names Default To Here(1);
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+//================================================================
+
+// 创建一个窗体函数用来调用
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+
+// 选择文件夹
+FilePath = Pick Directory( "选择追溯信息文件夹" );
+If(FilePath == "",
+	NwFunc("未选择文件夹，请重新选择！");
+	Stop();
+);
+
+// 判断文件名
+filelist = Files In Directory( FilePath );
+If( filelist == {},
+	NwFunc( "文件夹为空目录，请检查。" );
+	Stop();
+);
+filenames = {};
+For( i = 1, i <= N Items( filelist ), i++,
+	Insert Into( filenames, Right( filelist[i], 4 ) )
+);
+filenames = Associative Array( filenames ) << get keys;
+
+If( N Items( filenames ) > 1 | filenames[1] != "xlsx",
+	NwFunc( "文件格式不一致，只支持 xlsx 格式。" );
+	Stop();
+);
+
+// 导入文件
+mfi = Multiple File Import();
+mfi << Set Folder( FilePath );
+mfi << Set Charset( "gb2312" );
+mfi << Set Add File Name Column( 0 );
+mfi << Import Data();
+// 判断表格式是否一致
+TablesNum = N Table();
+If( TablesNum > 1,
+	NwFunc( "原始数据格式不一致，请检查！" );
+	Stop();
+);
+// 设置为活动表
+dt = Current Data Table();
+// 改表名称
+dt << Set Name( "Ship_Data" );
+
+// 判断原始数据是否正确
+If( N Cols( dt ) != 66,
+	NwFunc( "原始数据格式不正确，原始数据必须17列！" );
+	Stop();
+);
+// 删除多余的列
+delcol1 = 2::4;
+delcol2 = 11::13;
+delcol3 = 38::40;
+delcol4 = 62::66;
+delcols = Concat(delcol1,delcol2,delcol3,delcol4);
+
+dt << Delete Columns(delcols);
+
+// 新增 3 列用于存放批次
+For( i = 1, i <= 3, i++,
+	New Column( Char( i ), Character, "Nominal",Set Selected )
+);
+// 移动列
+dt << Move Selected Columns( {:"1"n}, after( :冲外形机台 ) );
+dt << Move Selected Columns( {:"2"n}, after( :冲机构机台 ) );
+// 获取列名称并修改为字符串
+colnames = dt << Get Column Names("String");
+
+For Each( {value}, colnames,
+	Column( dt, value ) << Data Type( Character ) << Set Modeling Type( "Nominal" )
+);
+
+// 站位堆叠
+stationscol = Index(3,55,3);
+
+dt << Stack(
+	columns( stationscol ),
+	Source Label Column( "站位名称" ),
+	Stacked Data Column( "机台ID" ),
+	"Non-stacked columns"n( Keep( :产品条码 ) ),
+	Output Table( "Station.jmp" )
+);
+
+dt2 = Data Table("Station.jmp");
+// 日期堆叠
+datecol = Index(2,55,3);
+
+dt << Stack(
+	columns( datecol ),
+	Source Label Column( "站位名称" ),
+	Stacked Data Column( "日期" ),
+	"Non-stacked columns"n( Keep( :产品条码 ) ),
+	Output Table( "date.jmp" )
+);
+
+dt3 = Data Table("date.jmp");
+//批号堆叠
+tracecol = Index(4,55,3);
+
+dt << Stack(
+	columns( tracecol ),
+	Source Label Column( "站位名称" ),
+	Stacked Data Column( "批号" ),
+	"Non-stacked columns"n( Keep( :产品条码 ) ),
+	Output Table( "tracec.jmp" )
+);
+
+dt4 = Data Table("tracec.jmp");
+
+// 新建列
+For( i = 1, i <= 7, i++,
+	dt2 << New Column( Char( i ), Character, "Nominal", Set Selected )
+);
+
+// 保存数据到数据表
+dt2[0,4] = dt3[0,3];
+dt2[0,5] = dt4[0,3];
+
+Close( dt3, NoSave );
+Close( dt4, NoSave );
+Close( dt, NoSave );
+
+// 删除脚本列表
+Script_List = dt2 << Get Table Script Names;
+dt2 << Delete Scripts( Script_List );
+
+// 截取字符串
+
+dt2:"3"n << Set Formula( Substr( :产品条码, 9, 5 ) );
+dt2:"4"n << Set Formula( Substr( :产品条码, 15, 1 ) );
+
+dt2:"5"n << Set Formula( "IRI" );
+dt2:"7"n << Set Formula( "Pass" );
+
+
+// 移动列
+dt2 << Move Selected Columns( {:"3"n}, after( :产品条码 ) );
+dt2 << Move Selected Columns( {:"4"n}, after( :"3"n ) );
+dt2 << Move Selected Columns( {:"5"n}, after( :"4"n ) );
+dt2 << Move Selected Columns( {:"6"n}, after( :机台ID ) );
+dt2 << Move Selected Columns( {:"1"n}, after( :"2"n ) );
+
+// 修改列名称
+NewCols = {"MB_SN","Model", "Region", "Site","Station_Name","Station_ID",
+	"Stencil_Tool_ID","Raw_Material_Trace_ID","Time_Stamp","Result"
+};
+	
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	Column( dt2, i ) << set name( NewCols[i] )
+);
+
+// 修改领益机种国别
+dt2:Model << Value Labels( {"V2408" = "X3206", "V2413" = "X3207"} ) << Use Value Labels( 1 );
+dt2:Region << Value Labels( {"S" = "ANSI", "K" = "ISO", "J" = "JIS"} ) << Use Value Labels( 1 );
+
+// 修改时间列
+dt2:Time_Stamp << Data Type( Numeric ) << Set Modeling Type( "Continuous" ) << Format(
+	"Format Pattern",
+	"<YYYY></><MM></><DD> <hh24><:><mm>",
+	23
+);
+dt2:Time_Stamp << Data Type( Character ) << Set Modeling Type( "Nominal" );
+
+// 保存数据
+dt2 << Save( "$Desktop/" || "Ship_Data_ML_" || Format( Today(), "yyyymmdd" ) || Char( Today() ) || "_MB-TraceabilityV1.csv" );
+
+Close(dt2,No Save);
