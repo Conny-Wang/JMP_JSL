@@ -81,6 +81,14 @@ delcols = Concat(delcol1,delcol2,delcol3,delcol4);
 
 dt << Delete Columns(delcols);
 
+// 删除 SN 空行
+dt << Select where( :产品条码 == "" );
+dt << Delete Rows;
+// 删除  SN 重复项
+dt << Select Duplicate Rows( Match( :产品条码 ) );
+dt << Delete Rows;
+
+
 // 新增 3 列用于存放批次
 For( i = 1, i <= 3, i++,
 	New Column( Char( i ), Character, "Nominal",Set Selected )
@@ -186,8 +194,14 @@ dt2:Time_Stamp << Data Type( Numeric ) << Set Modeling Type( "Continuous" ) << F
 	23
 );
 dt2:Time_Stamp << Data Type( Character ) << Set Modeling Type( "Nominal" );
+// 检查每个 SN 是不是都是 18 行
+snlist = Associative Array( dt2:MB_SN );
+If( N Items( snlist ) * 18 == N Row( dt2 ),
+	Print( "OK" ),
+	NwFunc( "数据行数错误，请检查格式！" )
+);
 
 // 保存数据
-dt2 << Save( "$Desktop/" || "Ship_Data_ML_" || Format( Today(), "yyyymmdd" ) || Char( Today() ) || "_MB-TraceabilityV1.csv" );
+dt2 << Save( "$Desktop/" || "Ship_Data_" || Format( Today(), "yyyymmdd" ) || Char( Today() ) || "_mbtraceability.csv" );
 
 Close(dt2,No Save);
