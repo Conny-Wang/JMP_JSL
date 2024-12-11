@@ -1,4 +1,4 @@
 //!
 dt = Current Data Table();
-dt << Save As( "$Desktop/IRI-MB_" || Format( Today(), "yyyymmdd" ) ||"_"|| Char( Today() ) || "_mbforce.csv" );
+dt << Save As( "$Desktop/IRI_MB_" || Format( Today(), "yyyymmdd" ) ||"_"|| Char( Today() ) || "_mbforce.csv" );
 Close(dt,No Save);
