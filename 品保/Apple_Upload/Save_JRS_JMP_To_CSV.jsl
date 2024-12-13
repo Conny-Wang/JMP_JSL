@@ -1,0 +1,4 @@
+//!
+dt = Current Data Table();
+dt << Save As( "$Desktop/" || "NPI_JRS_Data_" || Format( Today(), "yyyymmdd" )|| Char( Today() )  || "_domejrs.csv" );
+Close(dt,No Save);
