@@ -1,6 +1,6 @@
 ﻿//!
 
-// 新增 Apple JRS 上传格式脚本
+// 2024/12/19 更新删除原始文件
 
 //================================================================
 
@@ -23,6 +23,7 @@ NwFunc = Function({tips},
 );
 
 //================================================================
+
 // 引用路径
 
 Sampledir = "$Desktop/Sample_Directory/";
@@ -32,6 +33,10 @@ Appleupdir = "$Desktop/Sample_Directory/Apple_Upload/";
 SampleFile = "$Desktop/Sample_Directory/Apple_Upload/Apple_JRS_Sample.jmp";
 // 机种规格路径
 SpecFile = "$Desktop/Sample_Directory/Apple_Upload/JRS_Sample_Spec.jmp";
+
+
+// 引用函数库
+Include(Sampledir || "Function.jsl");
 
 //================================================================
 
@@ -146,3 +151,6 @@ dt1 << Save AS( "$Desktop/" || "IPQC_JRS_Data_" || Format( Today(), "yyyymmdd" )
 
 Close(dt1,No Save);
 Close(dt2,No Save);
+
+// 删除原始文件
+deletefiles(FilePath);

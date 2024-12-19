@@ -1,6 +1,7 @@
 ﻿//!
 
 // 2024/12/10 新增 Apple 站位英文名
+// 2024/12/19 更新删除原始文件
 
 
 //================================================================
@@ -25,6 +26,15 @@ NwFunc = Function({tips},
 );
 
 //================================================================
+
+// 引用路径
+
+Sampledir = "$Desktop/Sample_Directory/";
+// 引用函数库
+Include(Sampledir || "Function.jsl");
+
+//================================================================
+
 
 // 选择文件夹
 FilePath = Pick Directory( "选择追溯信息文件夹" );
@@ -232,3 +242,6 @@ For Each Row( dt2:Station_ID = Substr( dt2:Station_ID, 0, 6 ) );
 dt2 << Save( "$Desktop/" || "Ship_Data_" || Format( Today(), "yyyymmdd" ) || Char( Today() ) || "_mbtraceability.csv" );
 
 Close(dt2,No Save);
+
+// 删除原始文件
+deletefiles(FilePath);
