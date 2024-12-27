@@ -1,6 +1,6 @@
 ﻿//!
 
-// 2024/12/19 更新删除原始文件
+// 2024/12/27 新增领益 X3562 机种
 
 //================================================================
 
@@ -125,7 +125,7 @@ For(
 
 
 // 修改领益箱号
-dt:Model << Value Labels( {"AMM" = "X3226", "BMM" = "X3226"} ) << Use Value Labels( 1 );
+dt:Model << Value Labels( {"AMM" = "X3226", "BMM" = "X3226","JMM" = "X3562"} ) << Use Value Labels( 1 );
 
 // 修改时间列
 dt:ATTACH_DATE << Format( "m/d/y h:m", 23 );
