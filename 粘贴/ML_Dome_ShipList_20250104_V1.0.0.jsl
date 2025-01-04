@@ -1,0 +1,128 @@
+﻿//!
+
+// 2025/01/04 新增 ML 追溯信息
+
+Names Default To Here( 1 );
+
+Delete Globals();
+Clear Log();
+
+//================================================================
+
+// 创建一个警告窗体函数用来调用
+nwfunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+// 导入文件
+mfifunc = Function({folder_name,addfilename = 0,filter_file = "*.*"},
+	mfi = Multiple File Import();
+	mfi << Set Folder( folder_name );
+	mfi << Set Name Filter( filter_file );
+	mfi << Set Name Enable( 1 );
+	mfi <<Set Add File Name Column( addfilename );
+	mfi <<Set Charset( "gb2312" );
+);
+
+
+// 删除文件夹文件
+
+deletefiles = Function( {filepath}, 
+
+	filelist = Files In Directory( filepath, recursive( 1 ) );
+	If( filelist == {},
+		NwFunc( "文件夹为空，请检查！" );
+		Stop();
+	);
+	
+	For Each( {value}, filelist, Delete File( filepath || value ) );
+	
+);
+
+
+//================================================================
+FilePath = "$Desktop/JMP/";
+
+
+// 判断文件名
+filelist = Files In Directory( FilePath );
+If( filelist == {},
+	NwFunc( "文件夹为空目录，请检查。" );
+	Stop();
+);
+// 导入文件
+mfifunc(FilePath) << Import Data;
+
+// 判断表格式是否一致
+TablesNum = N Table();
+If( TablesNum > 1,
+	NwFunc( "原始数据格式不一致，请检查！" );
+	Stop();
+);
+// 设置为活动表
+dt = Current Data Table();
+// 改表名称
+dt << Set Name( "MLShip_Data" );
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+// 判断原始数据是否正确
+If( N Cols( dt ) != 14,
+	NwFunc( "原始数据格式不正确，原始数据必须14列！" );
+	Stop();
+);
+
+
+// 修改列名称
+colnamelist = {"No.", "Project code", "MB_SN", "ATTACH_DATE",
+"ATTACH_LINE", "TOOL_CODE", "FIXTURE_CODE", "BR_TOOL",
+"SR_TOOL", "RACK", "OVEN", "AOI_ID", "JRS_ID", "PACK_ID"};
+
+For( 
+	i = 1, i <= N Items( colnamelist ), i++,
+	Column( dt, i ) << set name( colnamelist[i] )
+);
+
+// 去重复值 + 去空行
+dt << Select Duplicate Rows( Match( Column( "MB_SN" )) ) << Delete Rows;
+dt << Select Where( :MB_SN == "" ) << Delete Row;
+
+
+// 修改行号
+dt:No. << Set Formula( Row() );
+// 判断机种
+// 修改 0124 的模号为 A03 B01
+amodel = Substr( dt:BR_TOOL, 3, 5 );
+If( amodel == "01254",
+	For Each Row( dt:BR_TOOL = "BR01254A03" || Right( dt:BR_TOOL, 17 ) );
+	For Each Row( dt:SR_TOOL = "SR01198B01" || Right( dt:SR_TOOL, 17 ) );
+);
+
+If( amodel == "21021",
+	For Each Row( dt:BR_TOOL = "BR21021A01" || Right( dt:BR_TOOL, 17 ) );
+	For Each Row( dt:SR_TOOL = "SR21021B01" || Right( dt:SR_TOOL, 17 ) );
+);
+
+
+// 获取机种名称
+model = Substr(dt:FIXTURE_CODE,1,5);
+
+// 获取行数
+rows = Char( N Rows() );
+// 保存数据
+dt << Save( "$Desktop/" ||model  || "_MLShip_Data_"  || Format( Today(), "yyyymmdd" ) || "_" || rows || "pcs.xlsx" );
+
+dt << Tabulate(
+	Transform Column( "机种[FIXTURE_CODE]", Nominal, Formula( Substr( :FIXTURE_CODE, 1, 7 ) ) ),
+	Transform Column( "周期[MB_SN]", Nominal, Formula( Substr( :MB_SN, 3, 6 ) ) ),
+	Add Table( Row Table( Grouping Columns( :"周期[MB_SN]"n, :"机种[FIXTURE_CODE]"n ) ) )
+);
+
+
+// 删除原始文件
+deletefiles(FilePath);
