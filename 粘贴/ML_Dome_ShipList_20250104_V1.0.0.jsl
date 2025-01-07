@@ -95,21 +95,33 @@ dt << Select Where( :MB_SN == "" ) << Delete Row;
 
 // 修改行号
 dt:No. << Set Formula( Row() );
-// 判断机种
-// 修改 0124 的模号为 A03 B01
-amodel = Substr( dt:BR_TOOL[1], 3, 5 );
-If( amodel == "01254",
-	For Each Row( dt:TOOL_CODE = "01254A03 01198B01");
-	For Each Row( dt:BR_TOOL = "BR01254A03" || Right( dt:BR_TOOL, 17 ) );
-	For Each Row( dt:SR_TOOL = "SR01198B01" || Right( dt:SR_TOOL, 17 ) );
+
+If( Is Missing(dt:SR_TOOL[1]) == 1,
+
+	dt << Delete Columns("SR_TOOL");
+	amodel = Substr( dt:BR_TOOL[1], 3, 5 );
+	If( amodel == "01254",
+		For Each Row( dt:TOOL_CODE = "01254A03");
+		For Each Row( dt:BR_TOOL = "BR01254A03" || Right( dt:BR_TOOL, 17 ) );
+	),
+		
+	// 判断机种
+	// 修改 0124 的模号为 A03 B01
+	amodel = Substr( dt:BR_TOOL[1], 3, 5 );
+	If( amodel == "01254",
+		For Each Row( dt:TOOL_CODE = "01254A03 01198B01");
+		For Each Row( dt:BR_TOOL = "BR01254A03" || Right( dt:BR_TOOL, 17 ) );
+		For Each Row( dt:SR_TOOL = "SR01198B01" || Right( dt:SR_TOOL, 17 ) );
+	);
+
+	// 修改 21021 的模号为 A01 B01
+	If( amodel == "21021",
+		For Each Row( dt:TOOL_CODE = "21021A01 21021B01" );
+		For Each Row( dt:BR_TOOL = "BR21021A01" || Right( dt:BR_TOOL, 17 ) );
+		For Each Row( dt:SR_TOOL = "SR21021B01" || Right( dt:SR_TOOL, 17 ) );
+	);
 );
 
-// 修改 21021 的模号为 A01 B01
-If( amodel == "21021",
-	For Each Row( dt:TOOL_CODE = "21021A01 21021B01" );
-	For Each Row( dt:BR_TOOL = "BR21021A01" || Right( dt:BR_TOOL, 17 ) );
-	For Each Row( dt:SR_TOOL = "SR21021B01" || Right( dt:SR_TOOL, 17 ) );
-);
 // 新建 4 列
 newcolname = {"GLUE_BATCH", "GLUE_TYPE", "BUILD_STAGE", "REMARKS"};
 
@@ -132,8 +144,7 @@ dt << Tabulate(
 	Add Table(
 		Row Table( Grouping Columns( :"周期[MB_SN]"n, :"机种[FIXTURE_CODE]"n ) ),
 		Row Table( Grouping Columns( :TOOL_CODE ) ),
-		Row Table( Grouping Columns( :BR_TOOL ) ),
-		Row Table( Grouping Columns( :SR_TOOL ) )
+	
 	)
 );
 
