@@ -1,6 +1,6 @@
 ﻿//!
 //21021_Mold_IPQC_SPEC
-//新增 21021B-X 规格 2024/11/25
+//新增 21021 A03 规格 2025/1/8
 
 Spectext = "Spec 引用成功！";
 
@@ -8,10 +8,10 @@ Spectext = "Spec 引用成功！";
 
 //大 Dome Force 规格
 
-L_LSL_PF = 51;
-L_LSL_PF_A02 = 49;
-L_USL_PF = 67;
-L_USL_PF_A02 = 65;
+L_LSL_PF = 50.5;
+L_LSL_PF_A02 = 50.5;
+L_USL_PF = 66.5;
+L_USL_PF_A02 = 66.5;
 
 L_LSL_PT = 0.19;
 L_USL_PT = 0.49;
@@ -22,20 +22,22 @@ L_USL_BF = 39;
 L_LSL_BT = 0.39;
 L_USL_BT = 0.79;
 
-L_LSL_CR = 45;
-L_LSL_CR_A02 = 42;
-L_USL_CR = 63;
-L_USL_CR_A02 = 60;
+L_LSL_CR = 44;
+L_LSL_CR_A02 = 44;
+L_LSL_CR_A03 = 43;
+L_USL_CR = 62;
+L_USL_CR_A02 = 62;
+
 
 L_LSL_RPF = 41;
 
 L_LSL_160T = 0.66;
 L_USL_160T = 1.06;
 
-L_LSL_PFmean = 57;
-L_LSL_PFmean_A02 = 55;
-L_USL_PFmean = 61;
-L_USL_PFmean_A02 = 59;
+L_LSL_PFmean = 56.5;
+L_LSL_PFmean_A02 = 56.5;
+L_USL_PFmean = 60.5;
+L_USL_PFmean_A02 = 60.5;
 
 //小 Dome Force 规格
 

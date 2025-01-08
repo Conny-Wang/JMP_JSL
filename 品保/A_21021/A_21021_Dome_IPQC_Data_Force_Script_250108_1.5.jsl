@@ -885,7 +885,7 @@ L_PFmean_Max = Col Maximum( :PFmean );
 L_PFmean_Min = Col Minimum(:PFmean);
 
 //大 Dome 规格判断
-//判断 A01 还是 A02
+//判断 A02 
 
 If(Tool_A == "21021A02",
 	L_LSL_PF = L_LSL_PF_A02;
@@ -894,6 +894,12 @@ If(Tool_A == "21021A02",
 	L_USL_PFmean = L_USL_PFmean_A02;
 	L_LSL_CR = L_LSL_CR_A02;
 	L_USL_CR = L_USL_CR_A02;
+);
+
+//判断 A03 
+
+If(Tool_A == "21021A03",
+	L_LSL_CR = L_LSL_CR_A03;
 );
 
 //PF
