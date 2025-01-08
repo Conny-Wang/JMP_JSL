@@ -98,7 +98,6 @@ dt:No. << Set Formula( Row() );
 
 If( Is Missing(dt:SR_TOOL[1]) == 1,
 
-	dt << Delete Columns("SR_TOOL");
 	amodel = Substr( dt:BR_TOOL[1], 3, 5 );
 	If( amodel == "01254",
 		For Each Row( dt:TOOL_CODE = "01254A03");
