@@ -1,0 +1,92 @@
+﻿//!
+
+Names Default To Here( 1 );
+
+Import_Data = Expr(
+
+//判断桌面是否有 JMP 文件
+	drijmp = Is Directory( "$Desktop\SE_Data" );
+//如果没有就创建一个 JMP 文件夹
+	If( drijmp == 0,
+		Create Directory( "$Desktop\SE_Data" )
+	);
+//设置桌面 JMP 文件夹为默认目录
+	dri = Set Default Directory( "$Desktop\SE_Data" );
+
+//批量导入需要合并的文件，默认参数，JMP 自动推导，可手动配置参数。
+	mfi = Multiple File Import();
+//设置导入目录
+	mfi << Set Folder( dri );
+//设置导入的编码为中文字体
+	mfi << Set Charset( "gb2312" );
+//批量导入
+	mfi << Import Data();
+//获取已经开的所有表数量
+	open_tables = N Table();
+//判断数据是否合并为 1 个，如果不是说明数据格式一致。
+//如果合并发现多余2个表弹窗提醒并停止下面代码继续执行。
+	If( open_tables > 1,
+		win = New Window( "错误提示", <<Modal, Text Box( "请检查数据\!r数据格式不一致" ), Button Box( "OK" ), );
+		Stop();
+	);
+//导入后定义当前活动表为 datatable
+	dt = Current Data Table();
+//判断有没有活动表,如果没有停止运行.
+	If( Is Empty( dt ),
+		win = New Window( "错误提示", <<Modal, Text Box( "桌面 JMP 文件夹为空\!r请检查文件" ), Button Box( "OK" ), );
+		Stop();
+	);
+	
+);
+
+
+Import_Data;
+
+dt = Current Data Table();
+//改名
+dt << Set Name( "SE_Data" );
+//删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+//删除不需要的行
+col1 = Column( 1 );
+dt:col1 << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt << Select Where( Is Missing( dt:col1 ) );
+dt << delete rows;
+
+//删除多余的1-3列
+//dt << Select columns( Column( 1 ) );
+//dt << Delete Columns;
+
+//修改列名称
+NewCols = {
+	“Num”,"F1", "F1T", "F2", "F2T", "F3", "F3T",
+	"F4", "F4T", "Click", "CR%", "TTg","TTmm"
+};
+	
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	Column( dt, i ) << set name( NewCols[i] )
+);
+
+//去除 * 号
+// 替换数据表中的全部
+Local( {dt = Data Table( "SE_Data" )},
+	dt << Begin Data Update;
+	For Each( {col},
+		dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		For Each Row( dt, col[] = Substitute( col[], "*", " ", <<IGNORECASE ) )
+	);
+	dt << End Data Update;
+);
+
+//所有转换为数字
+For( 
+	i = 1, i <= N Items( NewCols ), i++,
+	cols = column(i);
+	dt:cols << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+);
+
+//保存数据表
+dt << Save As("$Desktop\SE_Data.jmp");
