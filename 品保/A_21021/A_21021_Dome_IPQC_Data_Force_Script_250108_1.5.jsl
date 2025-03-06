@@ -898,7 +898,7 @@ If(Tool_A == "21021A02",
 
 //判断 A03 
 
-If(Tool_A == "21021A03",
+If(Tool_A == "21021A03" | Tool_A == "21021A04",
 	L_LSL_CR = L_LSL_CR_A03;
 );
 

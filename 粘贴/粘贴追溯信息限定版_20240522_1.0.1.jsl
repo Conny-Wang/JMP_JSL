@@ -215,7 +215,7 @@ Local( {dt = data table("Source_Data")},
 Script_list = dt << Get Table Script Names;
 dt << Delete Scripts( Script_list );
 
-// 判断是否为精元客户 正则替换粘贴日期为 2024/01/11
+// 判断是否为精元客户 正则替换粘贴日期为 2025/01/11
 If( Custom_Name == "Sunrex", 
 	pattern = Pat Regex( "^\S{10}|^\S{9}|^\S{8}" );
 	For Each Row(
@@ -223,7 +223,7 @@ If( Custom_Name == "Sunrex",
 		:ATTACH_DATE = Regex(
 			:ATTACH_DATE,
 			pattern,
-			"2024/01/11", 
+			"2025/01/11", 
 			//Abbrev Date(Today()-3*24*3600),
 			GLOBALREPLACE,
 			IGNORECASE

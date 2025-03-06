@@ -1,6 +1,7 @@
 ﻿//!
 
 // 2025/01/04 新增 ML 追溯信息
+// 2025/03/06 新增胶水型号和批次信息
 
 Names Default To Here( 1 );
 
@@ -67,9 +68,7 @@ If( TablesNum > 1,
 dt = Current Data Table();
 // 改表名称
 dt << Set Name( "MLShip_Data" );
-// 删除脚本列表
-Script_List = dt << Get Table Script Names;
-dt << Delete Scripts( Script_List );
+
 
 // 判断原始数据是否正确
 If( N Cols( dt ) != 14,
@@ -125,8 +124,10 @@ If( Is Missing(dt:SR_TOOL[1]) == 1,
 newcolname = {"GLUE_BATCH", "GLUE_TYPE", "BUILD_STAGE", "REMARKS"};
 
 For( i = 1, i <= N Items( newcolname ), i++,
-	New Column( newcolname[i] )
+	New Column( newcolname[i],"Character" )
 );
+
+
 
 
 // 获取机种名称
@@ -141,6 +142,46 @@ If(
 	banben = "JIS",
 	
 );
+
+//判断是否为 3207&3207机种 如果是 就增加胶水型号和批次
+If( 
+	model == "X3207",
+	For Each Row( dt:GLUE_BATCH = "8088" );
+	
+	// 获取粘贴日期
+	Att_Date = dt:ATTACH_DATE << Get as Matrix;
+	// 新建一列 Date
+	Date_Col = New Column( "Date", numeric, Format( "y/m/d" ) );
+	Date_Col << Set Values( Att_Date ) << Data Type( Character, "Nominal" );
+	// 胶水记录路径
+	Glue_Path = "$Desktop\Glue.jmp";
+	//打开胶水记录
+	If( File Exists( Glue_Path ) == 1,
+		dt_Glue = Open( Glue_Path, Invisible ),
+		win = New Window( "错误提示", <<Modal, Text Box( "请检查 Glue.jmp 文件\!n桌面未找到胶水记录文件！" ), Button Box( "OK" ) );
+		Stop();
+	);
+
+	// 更新胶水记录并关闭
+	dt << Update(
+		With( dt_Glue ),
+		Match Columns( :Date = :Date )
+	);
+	Close(dt_Glue,No Save);
+	//删除最后一列 Data
+	dt << Delete Columns("Date");
+	If(
+		Substr( dt:MB_SN[1], 9, 5 ) == "V2413", model = "X3207",
+		Substr( dt:MB_SN[1], 9, 5 ) == "V2408", model = "X3206",		
+	);
+	// 删除前2列
+	dt << Delete Columns(1,2);
+
+);
+
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
 
 // 获取行数
 rows = Char( N Rows() );
