@@ -1,0 +1,150 @@
+﻿//启动选择文件夹对话框
+chosen_folder = Pick Directory();
+
+//批量导入需要合并的文件，默认参数，JMP 自动推导，可手动配置参数。
+mfi = Multiple File Import();
+//设置导入目录
+mfi << Set Folder(chosen_folder);
+//批量导入
+mfi << Import Data();
+//获取已经开的所有表数量
+open_tables = N Table();
+//判断数据是否合并为 1 个，如果不是说明数据格式一致。
+//如果合并发现多余2个表弹窗提醒并停止下面代码继续执行。
+if (open_tables>1,
+	win = New Window( "错误提示",
+	<<Modal,
+	Text Box( "请检查数据\!r数据格式不一致" ),
+	Button Box( "OK" ),);
+	Stop(),
+);
+
+dt = Current Data Table();
+//先把 SN 按照升序排列
+dt << Sort(By(:SN), Order(Ascending), Replace Table);
+
+//PF
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Peak_Force_gf ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property, 
+	Output Table("PF")
+);
+//PT
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Peak_Travel_mm ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("PT")
+);
+//BF
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Bottom_Force_gf ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("BF")
+);
+//BT
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Bottom_Travel_mm ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("BT")
+);
+//CR
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Click_Ratio_pct ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("CR")
+);
+//MF
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Make_Force_gf ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("MF")
+);
+//160T
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :Travel_160gf_mm ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("160T")
+);
+//PF-MF
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :PF_MF ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("PF_MF")
+);
+//MT_PT
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :MT_PT ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("MT_PT")
+);
+//160T_PT
+dt << Split(
+	Split By( :Key_Number ),
+	Split( :"160T_PT"n ),
+	Group( :SN ),
+	Remaining Columns( Drop All ),
+	Sort by Column Property,
+	Output Table("160T_PT")
+);
+
+Data Table( "PF" ) << Concatenate(
+	Data Table( "PT" ),
+	Data Table( "BF" ),
+	Data Table( "BT" ),
+	Data Table( "CR" ),
+	Data Table( "MF" ),
+	Data Table( "160T" ),
+	Data Table( "PF_MF" ),
+	Data Table( "MT_PT" ),
+	Data Table( "160T_PT" ),
+	Create source column,
+	Output Table("Correlation Total")
+	
+);
+dirName = "JRS数据保存"||Char(Format(Today(),"Format Pattern","<YYYY><-><MM><-><DD><-><hh24><mm><ss>"));
+dirPath = "$Desktop\"; 
+dirs = Create Directory(dirPath||dirName);
+
+//关闭拆分的表
+Close( "PF",Save(dirPath||dirName||"\PF.xlsx") );
+Close( "PT" ,Save(dirPath||dirName||"\PT.xlsx"));
+Close( "BF",Save(dirPath||dirName||"\BF.xlsx") );
+Close( "BT",Save(dirPath||dirName||"\BT.xlsx") );
+Close( "CR",Save(dirPath||dirName||"\CR.xlsx") );
+Close( "MF",Save(dirPath||dirName||"\MF.xlsx") );
+Close( "160T" ,Save(dirPath||dirName||"\160T.xlsx"));
+Close( "PF_MF",Save(dirPath||dirName||"\PF_MF.xlsx") );
+Close( "MT_PT" ,Save(dirPath||dirName||"\MT_PT.xlsx"));
+Close( "160T_PT" ,Save(dirPath||dirName||"\160T_PT.xlsx"));
+
+// 更改列名
+Column Name(1)<<Set Name("Test Items");
+Column Name(2)<<Set Name("Sample No.");
+Data Table("Correlation Total") << Save( dirPath||dirName||"\Correlation Total(汇总表).xlsx" )
