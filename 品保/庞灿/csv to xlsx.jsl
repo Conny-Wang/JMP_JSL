@@ -1,0 +1,44 @@
+//!
+
+Names Default To Here( 1 );
+Delete Symbols();
+Delete Globals();
+
+path = Pick Directory();
+file_names = Files In Directory( path );
+
+For( i = 1, i <= N Items( file_names ), i++,
+	Print( file_names[i] );
+	
+	Open(
+		path || file_names[i],
+		Charset( "gb2312" ),
+		Import Settings(
+			End Of Line( CRLF, CR, LF ),
+			End Of Field( Comma, CSV( 1 ) ),
+			Treat Leading Zeros as Character( 1 ),
+			Strip Quotes( 0 ),
+			Use Apostrophe as Quotation Mark( 0 ),
+			Use Regional Settings( 0 ),
+			Scan Whole File( 1 ),
+			Treat empty columns as numeric( 0 ),
+			CompressNumericColumns( 0 ),
+			CompressCharacterColumns( 0 ),
+			CompressAllowListCheck( 0 ),
+			Labels( 1 ),
+			Column Names Start( 1 ),
+			First Named Column( 1 ),
+			Data Starts( 2 ),
+			Lines To Read( "All" ),
+			Year Rule( "20xx" )
+		)
+	);
+	dt = Current Data Table();
+	newdirname = "$Desktop\Save_CSV\";
+	newdir = Create Directory( newdirname );
+	tablename = dt << get name;
+	dt << Save( newdirname || tablename || ".xlsx" );
+	Close( dt, "NoSave" );
+
+);
+
