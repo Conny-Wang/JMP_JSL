@@ -1,0 +1,101 @@
+﻿//
+
+
+Names Default To Here(1);
+Delete Globals();
+Delete Symbols();
+Clear Globals();
+Clear Symbols();
+
+dt = Current Data Table();
+
+
+Try( If( N Col( dt ) != 36, Stop() ),throw("JMP 列数不是 36"));
+// 新建一个 lot 列
+dt << New Column( "Lot",
+	Character,
+	"Nominal",
+	Formula( :Assy || "_" || :Line No. || "_" || :Test Date || "_" || :Test Time ),
+);
+
+// 选择 Type P & Type K/H
+dt << Select Where( :Key_Type == "H" | :Key_Type == "K" 
+	| :Key_Type == "KL" | :Key_Type == "P" 
+	| :Key_Type == "PJ"		
+);
+// 反选列并删除多余项目
+dt << Invert Row Selection;
+dt << Delete Rows;
+
+// 删除不需要分料的 Type H/K 的行
+dt << Select Where( (:Key_Type == "H" | :Key_Type == "K" | :Key_Type == "KL") & :Peak Force < 69 );
+dt << Delete Rows;
+
+// 删除不需要分料的 Type P 的行
+dt << Select Where( (:Key_Type == "P" | :Key_Type == "PJ" ) & :Peak Force < 65 );
+dt << Delete Rows;
+
+
+
+/*// 新建一个列统计 PF 最大值
+dt << New Column( "PF_Max",
+	Numeric,
+	"Continuous",
+	Formula( Col Maximum( :Peak Force, :Key_Type, :Lot ) ),
+);*/
+
+
+
+
+
+
+// 新建结果列
+dt << New Column( "PF_Result",
+	Character,
+	"Nominal",
+);
+
+//lot去重
+lotass = Associative Array(:Lot);
+
+lotass = lotass << Get Keys;
+
+lotnum = N Items(lotass);
+//写入结果
+For( i = 1, i <= lotnum, i++,
+	r = dt << Get Rows Where( :Lot == lotass[i] );
+	If( N Items(r) > 4 ,
+		dt:PF_Result[r] = "NG",
+		dt:PF_Result[r] = "OK",
+	);
+	
+);
+
+
+//删除OK列
+dt << Select Where( :PF_Result == "OK" );
+dt << Delete Rows;
+
+
+// 判断行数是否为0
+If( N Row() == 0,
+	New Window( "提示", <<Modal, Text Box( "OK" ), Button Box( "OK" ) );
+	Close( dt, NoSave )
+,
+	dt << Tabulate( Add Table( Row Table( Grouping Columns( :Lot, :PF_Result ) ) ) );
+	New Window( "警告", <<Modal, Text Box( "分料" ), Button Box( "OK" ) )
+);
+
+
+/*// 去重
+resultlist = Associative Array(:lot,:PF_Result);
+lotname = resultlist << Get Keys;
+reslutname = resultlist << Get Values;
+//生成结果列
+dt2 = New Table( "结果", 
+	New Column( "NG Lot", Character, Nominal, Set Values( lotname ) ),
+);*/
+
+
+
+
