@@ -1,0 +1,52 @@
+﻿
+
+// 2025/07/12 Conny 更新
+// 纬创/领益 TypeP 均值筛选超过 64g/f 判断为 NG
+
+
+// 规格
+typep_pf_mean_spec_usl = 64;
+
+
+
+dt = Current Data Table();
+
+If( Is Empty( dt ), Stop() );
+
+dt2 = dt << Select Where( (dt:customer == "Wistron" | dt:customer == "LL") & dt:KEY Name == "SPACE" ) << Data View;
+
+dt2 << New Column( "Lots" );
+dt2:Lots << Set Formula( :customer || "_" || :Line No. || "_" || :Assy || "_" || :Test Date || :Test Time );
+
+dt2 << New Column( "TypeP_Mean" );
+dt2:TypeP_Mean << Set Formula( Round( Col Mean( :Peak Force, :Lots ), 4 ) );
+
+dt2 << New Column( "Result" );
+
+For( i = 1, i <= N Row(), i++, 
+
+	If( dt2:TypeP_Mean[i] > typep_pf_mean_spec_usl, 
+
+		dt2:Result[i] = "NG"
+	,
+		dt2:Result[i] = "OK"
+	
+	);
+
+);
+
+r = dt2 << Get Rows Where( :Result == "NG" );
+
+nglots = Associative Array( dt2:Lots[r] ) << Get Keys;
+
+If( N Items( nglots ) > 0,
+	nglots = Concat Items(nglots,"\!N");
+	New Window( "Type_P 空格键均值超 64g Lot", <<Modal, Text Box( nglots ), Button Box( "OK" ) )
+	,
+	
+	New Window( "提示", <<Modal, Text Box( "无超规" ), Button Box( "OK" ) );
+	Close(dt2,No Save);
+	Close(dt,No Save);
+);
+
+
