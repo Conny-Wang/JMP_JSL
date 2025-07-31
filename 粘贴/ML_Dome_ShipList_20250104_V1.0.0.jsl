@@ -189,7 +189,7 @@ dt << Delete Scripts( Script_List );
 // 获取行数
 rows = Char( N Rows() );
 // 保存数据
-dt << Save( "$Desktop/" || model || " " || banben ||" Ramp " || datecode || " IRI Qty " || rows || "pcs.xlsx" );
+dt << Save( "$Desktop/" || model || " " || banben ||" Ramp " || datecode || " IRI Qty " || rows || "pcs V1.0.xlsx" );
 
 dt << Tabulate(
 	Transform Column( "机种[FIXTURE_CODE]", Nominal, Formula( Substr( :FIXTURE_CODE, 1, 7 ) ) ),
