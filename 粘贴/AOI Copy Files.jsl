@@ -1,0 +1,127 @@
+﻿//!
+
+
+Names Default To Here(1);
+
+dir_name = Pick Directory( "选中包含数据的文件夹","$Desktop" );
+If( dir_name == "", Stop() );
+// 在桌面创建一个文件夹存放数据
+Create Directory( "$Desktop" || "\AOI_File\" );
+AOI_dir = "$Desktop" || "\AOI_File\";
+
+AOI_Nmaes = Files In Directory( AOI_dir );
+If( AOI_Nmaes != {},
+	Caption(
+		{100, 200},
+		"桌面 AOI_File 文件夹有文件，请删除！",
+		Font( "Arial Black" ),
+		Font Size( 16 ),
+		Text Color( "red" ),
+		Back Color( "yellow" ),
+		Spoken( 1 )
+	);
+	Wait( 4 );
+	Caption( remove );
+	Stop();
+);
+
+//dir_name = "C:\Users\conny\Desktop\";
+// 批量导入文件
+
+dt = Multiple File Import(
+	<<Set Folder(
+		dir_name
+	),
+	<<Set Show Hidden( 0 ),
+	<<Set Subfolders( 0 ),
+	<<Set Name Filter( "*.csv;" ),
+	<<Set Name Enable( 0 ),
+	<<Set Size Filter( {4719, 4835} ),
+	<<Set Size Enable( 0 ),
+	<<Set Date Filter( {3836685184, 3836968188} ),
+	<<Set Date Enable( 0 ),
+	<<Set Add File Name Column( 1 ),
+	<<Set Add File Size Column( 0 ),
+	<<Set Add File Date Column( 1 ),
+	<<Set Import Mode( "Row Per File" ),
+	<<Set Charset( "utf-8" ),
+	<<Set Stack Mode( "Stack Similar" ),
+	<<Set CSV Has Headers( 1 ),
+	<<Set CSV Allow Numeric( 1 ),
+	<<Set CSV First Header Line( 2 ),
+	<<Set CSV Number Of Header Lines( 1 ),
+	<<Set CSV First Data Line( 3 ),
+	<<Set CSV EOF Comma( 1 ),
+	<<Set CSV EOF Tab( 0 ),
+	<<Set CSV EOF Space( 0 ),
+	<<Set CSV EOF Spaces( 0 ),
+	<<Set CSV EOF Other( "" ),
+	<<Set CSV EOL CRLF( 1 ),
+	<<Set CSV EOL CR( 1 ),
+	<<Set CSV EOL LF( 1 ),
+	<<Set CSV EOL Semicolon( 0 ),
+	<<Set CSV EOL Other( "" ),
+	<<Set CSV Quote( "\!"" ),
+	<<Set CSV Escape( "" ),
+	<<Set XML Method( "guess" ),
+	<<Set XML Guess( "huge" ),
+	<<Set XML Settings( XML Settings() ),
+	<<Set JSON Method( "guess" ),
+	<<Set JSON Guess( "huge" ),
+	<<Set JSON Settings( JSON Settings() ),
+	<<Set PDF Method( "guess" ),
+	<<Set PDF Settings( PDF All Tables( Combine( All ) ) ),
+	<<Set Import Callback( Empty() )
+) << Import Data;
+
+dt = Current Data Table();
+// 改表名
+dt << set name("AOI 文件名");
+// 删除第一列
+dt << Delete Columns(1);
+// 新建一列提取 SN
+dt << New Column( "SN", Character, Formula( Word( 1, :File Name, "_" ) ) );
+// 按照时间排序生成新表
+dt << Sort( By( :SN, :File Date ), Order( Ascending, Descending ) );
+// 关闭表1 不保存
+Close(dt,No Save);
+// 新表设置为活动表
+dt2 = Current Data Table();
+// 改表名
+dt2 << set name("AOI 文件名");
+
+// 去重 SN 获取唯一值
+snlist = Associative Array(dt2:SN) << get keys;
+
+// 获取 SN 未去重的值
+snlist2 = dt2:SN << get values;
+
+// 空矩阵用于存放行
+r = [];
+For( i = 1, i <= N Items( snlist ), i++,
+	Insert Into( r, Contains( snlist2, snlist[i] ) )
+);
+
+N Items(r);
+
+// 复制文件
+filelist = dt2:文件名 << get values;
+
+// 复制文件
+For( i = 1, i <= N Items( r ), i++,
+	Copy File( dir_name || filelist[r][i],  AOI_dir || filelist[r][i] )
+);
+
+Close(dt2,No Save);
+
+Caption(
+	{600, 300},
+	"AOI文件复制OK 总共复制" || Char( N Items( r ) ) || " 个文件啊",
+	Font( "Arial Black" ),
+	Font Size( 16 ),
+	Text Color( "blue" ),
+	Back Color( "green" ),
+
+);
+Wait( 4 );
+Caption( remove );
