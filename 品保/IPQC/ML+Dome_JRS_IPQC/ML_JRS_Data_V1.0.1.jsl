@@ -445,3 +445,11 @@ If( N Items( IPQC_File_Name ) == 1,
 	dt << Save As( Dir_Save || "/IRI ML Dome Force JRS IPQC Data " || TestDate_File_Name || ".jmp" );
 	Try(dt << Save As( DT_Save_Path || "IRI ML Dome Force JRS IPQC Data " || TestDate_File_Name || " " || Char( Today() ) || ".jmp" ));
 );
+
+// 获取文件目录 并删除文件
+Files = Files In Directory( Dir_Source );
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( Dir_Source || "/" || Files[i] )
+	);
+);
