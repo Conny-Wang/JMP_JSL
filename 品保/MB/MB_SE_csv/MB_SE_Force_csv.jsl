@@ -1,0 +1,99 @@
+﻿//
+Names Default To Here( 1 );
+
+
+file_path = Pick Directory( "选择存放 MB_SE_CSV 数据的文件夹","$Desktop" );
+
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+If( file_path == "",
+	NwFunc( "未选择文件夹，请重新选择！" );
+	Stop();
+);
+
+
+Multiple File Import(
+	<<Set Folder( file_path ),
+	<<Set Show Hidden( 0 ),
+	<<Set Subfolders( 0 ),
+	<<Set Name Filter( "*.csv;" ),
+	<<Set Add File Name Column( 1 ),
+	<<Set Import Mode( "CSVData" ),
+	<<Set Charset( "utf-8" ),
+	<<Set Stack Mode( "Stack Similar" ),
+	<<Set CSV Has Headers( 1 ),
+	<<Set CSV Allow Numeric( 1 ),
+	<<Set CSV First Header Line( 1 ),
+	<<Set CSV Number Of Header Lines( 1 ),
+	<<Set CSV First Data Line( 4 ),
+	<<Set CSV EOF Comma( 0 ),
+	<<Set CSV EOF Tab( 0 ),
+	<<Set CSV EOF Space( 0 ),
+	<<Set CSV EOF Spaces( 0 ),
+	<<Set CSV EOF Other( "" ),
+	<<Set CSV EOL CRLF( 1 ),
+	<<Set CSV EOL CR( 1 ),
+	<<Set CSV EOL LF( 1 ),
+	<<Set CSV EOL Semicolon( 0 ),
+	<<Set CSV EOL Other( "" ),
+	<<Set CSV Quote( "\!"" ),
+	<<Set CSV Escape( "" ),
+	<<Set Import Callback( Empty() )
+) << Import Data;
+
+open_tables = N Table();
+If( open_tables > 1,
+		NwFunc( "合并文件失败，请检查表格式是否一致" );
+		Stop();
+	);
+	
+dt = Current Data Table();
+dt << Set Name( "MB_SE_Force" );
+
+Column( 1 ) << Set Name( "Data_Source" );
+
+dt << New Column( "KeyNumber", "Character" );
+dt << New Column( "Force", "Character" );
+dt << New Column( "Travel", "Character" );
+dt << New Column( "SN", "Character" );
+
+
+data_list = Column( 1 );
+For Each Row( dt:KeyNumber = Word( 2, data_list[], "-," ) );
+For Each Row( dt:Force = Word( 3, data_list[], "-," ) );
+For Each Row( dt:Travel = Word( 4, data_list[], "-," ) );
+For Each Row( dt:SN = Word( 5, data_list[], "-," ) );
+
+dt << Select Where( :SN == "" );
+dt << Delete Rows();
+
+New Column( "机种", "Character" );
+For Each Row( dt:机种 = Word( 1, dt:FileName, "_" ) );
+New Column( "国别", "Character" );
+For Each Row( dt:国别 = Word( 2, dt:FileName, "_" ) );
+New Column( "客户", "Character" );
+For Each Row( dt:客户 = Word( 3, dt:FileName, "_" ) );
+New Column( "MB厂商", "Character" );
+For Each Row( dt:MB厂商 = Word( 4, dt:FileName, "_" ) );
+New Column( "阶段", "Character" );
+For Each Row( dt:阶段 = Word( 5, dt:FileName, "_" ) );
+New Column( "测试日期", "Character" );
+For Each Row( dt:测试日期 = Word( 7, dt:FileName, "_" ) );
+New Column( "测试机台", "Character" );
+For Each Row( dt:测试机台 = Word( 2, dt:FileName, "-." ) );
+
+New Column( "MB周期", "Character" );
+For Each Row( dt:MB周期 = Substr( dt:SN, 3, 6 ) );
+
+dt:KeyNumber << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt:Force << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt:Travel << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+
+Scriptlist = dt << Get Table Script Names;
+dt << Delete Scripts(Scriptlist);
