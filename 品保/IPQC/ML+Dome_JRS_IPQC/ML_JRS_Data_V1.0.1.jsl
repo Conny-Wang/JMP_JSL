@@ -1,6 +1,6 @@
 ﻿//
 
-// 新增 ML 测试 JRS 脚本 2024/07/13
+// 405行新增 SN 判断是否 20x 2025/09/23
 
 
 // 运行脚本前清除所有 JMP 变量名称和值
@@ -399,6 +399,16 @@ If( File Exists( SN_dt ) == 0,
 // 获取当前测试的 SN 并去重
 Test_SN = Associative Array( dt:SN );
 lot_Num = Associative Array( dt:lot );
+snnum = N Items( Test_SN );
+
+// 判断 SN 是否是 20x 如果不是就停止保存
+If( snnum != 20,
+	Caption( {100, 200}, "SN 数量 " || char(snnum) || "X 请核对 未保存！", Font Size( 16 ), Text Color( "Red" ) );
+	Wait( 3 );
+	Caption( remove );
+	Stop();
+);
+
 // 获取 SN 和 Lot 号
 SN_Value = Test_SN << Get Keys;
 Lot_Value = lot_Num << Get Keys;
