@@ -1,6 +1,6 @@
 ﻿//
 
-// 405行新增 SN 判断是否 20x 2025/09/23
+// 405行新增 SN 判断是否 20x/40x 2025/09/23
 
 
 // 运行脚本前清除所有 JMP 变量名称和值
@@ -401,8 +401,9 @@ Test_SN = Associative Array( dt:SN );
 lot_Num = Associative Array( dt:lot );
 snnum = N Items( Test_SN );
 
-// 判断 SN 是否是 20x 如果不是就停止保存
-If( snnum != 20,
+// 判断 SN 是否是 20x/40x 如果不是就停止保存
+If( snnum == 20|snnum == 40,
+	print("OK"),
 	Caption( {100, 200}, "SN 数量 " || char(snnum) || "X 请核对 未保存！", Font Size( 16 ), Text Color( "Red" ) );
 	Wait( 3 );
 	Caption( remove );
