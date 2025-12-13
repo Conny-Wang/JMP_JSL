@@ -1,0 +1,363 @@
+﻿//
+
+// MB+Dome 拉拔力数据脚本
+
+//================================================================
+
+// 运行脚本前清除所有 JMP 变量名称和值
+Clear Globals();
+Clear Log();
+Clear Symbols();
+Delete Globals();
+Delete Symbols();
+
+//================================================================
+
+// 引用路径明细
+// 原始数据存放目录
+Dir_Source = "$Desktop/MB+Dome_push_out/Source";
+// 保存数据表目录
+Local_Save_Path = "$Desktop/MB+Dome_push_out/Save_JMP";
+// 公盘存放文件路径
+Public_Save_Path = "//192.168.0.245/品保课/A产品数据/粘贴IPQC数据/MB+D IPQC report_暂存/MB+Dome_拉拔力数据_Backup/";
+
+// 生产信息对照表路径
+IPQC_Source = "$Desktop/MB+D IPQC report source.jmp";
+
+
+// 规格表
+Large_LSL = 700;
+Small_LSL = 500;
+Larger_Mean_LSL = 1200;
+Small_Mean_LSL = 800;
+
+//================================================================
+
+// 创建一个窗体函数用来调用
+NwFunc = Function({tips},
+	New Window("Tips",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+//================================================================
+
+// 判断原始数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Dir_Source ) == 0,
+	Create Directory( Dir_Source )
+);
+
+// 判断保存数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Local_Save_Path ) == 0,
+	Create Directory( Local_Save_Path )
+);
+
+// 判断公盘保存数据文件夹是否存在，不存在就自动创建
+If( Is Directory( Public_Save_Path ) == 0,
+	Create Directory( Public_Save_Path )
+);
+
+//================================================================
+
+// 新建窗体
+nw_main = New Window( "MB+Dome 拉拔力数据" );
+nw_main << Append(
+	Outline Box( "MB+Dome 拉拔力数据",
+		V List Box( //垂直排列显示框
+			H List Box( Text Box( "测试日期	:    " ), Test_Date_Box = Text Edit Box( "D", <<Set Width( 100 ) ) ), // 测试日期
+			H List Box( Text Box( "测试时间	:    " ), Test_Time_Box = Text Edit Box( "T", <<Set Width( 100 ) ) ),   // 测试时间
+		),
+		Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+		//点击按钮可以运行对应的脚本
+		Button Box( "生成拉拔力数据报表", Import_Data ), 
+		Spacer Box( size( 10, 10 ) ), //保持和其他显示框的间距
+			// 保存报表
+		Button Box( "保存报表", Save_PUSHOUT_Data )
+	)
+);
+//设置窗体大小 移动窗体位置
+nw_main << Set Window Size( 260, 420 ) << Move window( 1600, 100 );
+
+
+//================================================================
+Import_Data = Expr(
+
+// 获取测试日期
+Test_Date = Test_Date_Box << Get Text();
+// 获取测试时间
+Test_Time = Test_Time_Box << Get Text();
+
+// 导入文件
+mfi = Multiple File Import( <<Set Folder( Dir_Source ), 
+<<Set Charset( "gb2312" ),
+<<Set Add File Name Column( 1 ),
+) << Import Data();
+
+// 设置当前表为活动表
+dt = Current Data Table();
+
+If( Is Empty( dt ),
+	NwFunc("桌面 "||Dir_Source||" 文件夹为空\!r文件未导入");
+	Stop();
+);
+
+If( N Table()>1,
+	NwFunc("原始文件格式不一致，请确认！");
+	Stop();
+);
+
+
+//改表名
+dt << Set Name( "Push_out_Data" );
+
+
+new_col_list = {"Line No.","customer","stage","Large Tool","Small Tool","MB vendor",
+	"Assy","Test Date","Test Time"
+};
+// 新建9列
+For( i = 1, i <= N Items( new_col_list ), i++,
+	New Column( new_col_list[i], character )
+);
+// 移动到最前面
+dt << Move Selected Columns( new_col_list, To First );
+// 修改 key_number 为数字
+dt:key_number << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt:Sample1 << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt:Sample2 << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt:Sample3 << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+
+
+
+// 写入巡回时间和日期和线体
+dt:Test Date << Set Formula( Test_Date );
+dt:Test Time << Set Formula( Test_Time );
+dt:Line No. << Set Formula(Item(3, :文件名, "-"));
+
+// 打开生产信息对照表
+Try( dt2 = Open(IPQC_Source,Invisible), Throw( "打开桌面 " || IPQC_Source || " 信息对照表错误" ) );
+
+// 更新表信息
+dt << Update(
+	With( dt2 ),
+	Match Columns( :Line No. = :Line No., :Test Date = :Test Date, :Test Time = :Test Time ),
+	Add Columns from Update Table( None ),
+	Replace Columns in Main Table( :customer, :stage, :Large Tool, :Small Tool, :MB vendor, :Assy )
+);
+
+// 关闭信息对照表
+Close( dt2, No Save );
+
+//判断有没有匹配失败的
+rmiss = dt << Get Rows Where( dt:customer == "" );
+If( N Items(rmiss) != 0,
+	NwFunc( "有客户匹配为空，请检查！" );
+	Stop();
+);
+
+// 删除公式
+dt:Test Date << Delete Formula;
+dt:Test Time << Delete Formula;
+dt:Line No. << Delete Formula;
+
+// 先获取机种并保存为 List
+dt << New Column( "Lot_List", "character" );
+dt:Lot_List << Set Formula( :customer || :Assy || :Line No. );
+
+
+// 删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+// Lot 去重 找到唯一值
+assy_lot = Associative Array( dt:Lot_List ) << get keys;
+
+// 统计 Lot 数
+lot_counts = N Items(assy_lot);
+// for 循环找 每个 Lot 行数
+
+// 定义四个空矩阵存放最小值和均值
+lot_Large_Min = [];
+lot_Small_Min = [];
+lot_Large_Mean = [];
+lot_Small_Mean = [];
+
+
+For( i = 1, i <= lot_counts, i++, 
+	// 大 Dome lot 对应行数
+	lot_Large_r = dt << Get Rows Where(dt:Lot_List == assy_lot[i]&:Dome Size == "Large");
+	// 小 Dome lot 对应行数
+	lot_Small_r = dt << Get Rows Where(dt:Lot_List == assy_lot[i]&:Dome Size == "Small"); 
+	//临时存放大小Dome最小值
+	temp_Large =  Min(dt[lot_Large_r,[15 16 17]]);
+	temp_Small =  Min(dt[lot_Small_r,[15 16 17]]);
+	temp_Large_Mean = Mean(dt[lot_Large_r,[15 16 17]]);
+	temp_Small_Mean = Mean(dt[lot_Small_r,[15 16 17]]);
+	
+	//拼接大小 Dome 最小值
+	lot_Large_Min ||= temp_Large;
+	lot_Small_Min ||= temp_Small;
+	lot_Large_Mean ||= temp_Large_Mean;
+	lot_Small_Mean ||= temp_Small_Mean;
+	
+);
+
+result_list = {};
+// 判断是否超规
+For( i = 1, i <= lot_counts, i++,
+	If( lot_Large_Min[i] < Large_LSL,
+		Insert Into(result_list,"大Dome超规 最小值："  || Char(lot_Large_Min[i]) || " " || assy_lot[i] || "\!r" );
+	);
+	If( lot_Small_Min[i] < Small_LSL,
+		Insert Into(result_list,"小Dome超规 最小值："  || Char(lot_Small_Min[i]) || " " || assy_lot[i] || "\!r");
+	);
+	If( lot_Large_Mean[i] < Larger_Mean_LSL,
+		Insert Into(result_list,"大Dome均值超规 最小值："  || Char(lot_Large_Mean[i]) || " " || assy_lot[i] || "\!r");
+	);
+	If( lot_Small_Mean[i] < Small_Mean_LSL,
+		Insert Into(result_list,"小Dome均值超规 最小值："  || Char(lot_Small_Mean[i]) || " " || assy_lot[i] || "\!r");
+	);
+	
+
+);
+
+result_list_Text = "";
+// FOR 循环提取值并回车
+For( i = 1, i <= N Items( result_list ), i++,
+	result_list_Text ||= result_list[i];
+
+	Insert Into( result_list_Text, "\!r" );
+);
+
+// 显示结果
+If( N Items( result_list ) != 0,
+	NwFunc( result_list_Text),
+	NwFunc("全部 OK ")
+);
+	
+
+
+// 拉图
+
+GBwindwos = dt << Graph Builder(
+	Size( 1352, 735 ),
+	Show Control Panel( 0 ),
+	Variables(
+		X( :Test Date ),
+		X( :Test Time, Position( 1 ) ),
+		Y( :Sample1 ),
+		Y( :Sample2 ),
+		Y( :Sample3 ),
+		Group X( :Dome Size ),
+		Group X( :Line No. ),
+		Color( :Dome Size )
+	),
+	Elements(
+		Position( 1, 1 ),
+		Points( X( 1 ), X( 2 ), Y, Legend( 143 ) ),
+		Caption Box(
+			X( 1 ),
+			X( 2 ),
+			Y,
+			Legend( 146 ),
+			Summary Statistic( "Max" ),
+			Summary Statistic 2( "Min" ),
+			Summary Statistic 3( "Mean" )
+		)
+	),
+	Elements(
+		Position( 1, 2 ),
+		Points( X( 1 ), X( 2 ), Y, Legend( 144 ) ),
+		Caption Box(
+			X( 1 ),
+			X( 2 ),
+			Y,
+			Legend( 147 ),
+			Summary Statistic( "Max" ),
+			Summary Statistic 2( "Min" ),
+			Summary Statistic 3( "Mean" )
+		)
+	),
+	Elements(
+		Position( 1, 3 ),
+		Points( X( 1 ), X( 2 ), Y, Legend( 145 ) ),
+		Caption Box(
+			X( 1 ),
+			X( 2 ),
+			Y,
+			Legend( 148 ),
+			Summary Statistic( "Max" ),
+			Summary Statistic 2( "Min" ),
+			Summary Statistic 3( "Mean" )
+		)
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"Sample1",
+			ScaleBox,
+			{Add Ref Line( 700, "Dotted", "Red", "L_LSL 700", 1 ),
+			Add Ref Line( 500, "Dotted", "Blue", "S_LSL 500", 1 )}
+		),
+		Dispatch(
+			{},
+			"Sample2",
+			ScaleBox,
+			{Add Ref Line( 700, "Dotted", "Red", "L_LSL 700", 1 ),
+			Add Ref Line( 500, "Dotted", "Blue", "S_LSL 500", 1 )}
+		),
+		Dispatch(
+			{},
+			"Sample3",
+			ScaleBox,
+			{Add Ref Line( 500, "Dotted", "Blue", "S_LSL 500", 1 ),
+			Add Ref Line( 700, "Dotted", "Red", "L_LSL 700", 1 )}
+		),
+		Dispatch( {}, "graph title", TextEditBox, {Set Text( "Push out data" )} )
+	)
+);
+
+GBwindwos << Bring Window To Front;
+
+
+
+
+);
+
+// 保存数据
+Save_PUSHOUT_Data = Expr(
+	
+	set_file_names = Test_Date || Left( Test_Time, 3 );
+	IPQC_File_Name = Files In Directory( Local_Save_Path );
+	
+	If( N Items( IPQC_File_Name ) == 1, 
+	// 获取旧文件名
+	Test_Date_Old = Items( IPQC_File_Name[1], ".-" );
+	
+	If( N Items( Test_Date_Old ) == 2,
+		Test_Date_Old = Right( Test_Date_Old[1], 7 ),
+		Test_Date_Old = Test_Date_Old[2]
+	);
+
+	dt4 = Open( Local_Save_Path || "/" || IPQC_File_Name[1] );
+	dt4 << Concatenate( dt, Append to first table );
+	dt4 << Save As( Local_Save_Path || "/IRI MB+Dome 拉拔力 Dim Data-" || Test_Date_Old || "-" || set_file_names || ".jmp" );
+	Try(dt << Save As( Public_Save_Path || "IRI MB+Dome 拉拔力 Dim Data " || set_file_names || " " || Char( Today() ) || ".jmp" ));
+	// 删除旧文件
+	Delete File( Local_Save_Path || "/" || IPQC_File_Name[1] );
+,
+	dt << Save As( Local_Save_Path || "/IRI MB+Dome 拉拔力 Dim Data-" || set_file_names || ".jmp" );
+	Try(dt << Save As( Public_Save_Path || "IRI MB+Dome 拉拔力 Dim Data " || set_file_names || " " || Char( Today() ) || ".jmp" ));
+);
+
+Close All( Data Tables, NoSave );
+
+// 获取文件目录 并删除文件
+Files = Files In Directory( Dir_Source );
+If( Files != {},
+	For( i = 1, i <= N Items( Files ), i++,
+		Delete File( Dir_Source || "/" || Files[i] )
+	);
+);
+	
+);

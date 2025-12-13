@@ -82,7 +82,7 @@ If( N Row() == 0,
 	New Window( "提示", <<Modal, Text Box( "OK" ), Button Box( "OK" ) );
 	Close( dt, NoSave )
 ,
-	dt << Tabulate( Add Table( Row Table( Grouping Columns( :Lot, :PF_Result ) ) ) );
+	dt << Tabulate( Add Table( Row Table( Grouping Columns( :Lot, :Key_Type,:PF_Result ) ) ) );
 	New Window( "警告", <<Modal, Text Box( "分料" ), Button Box( "OK" ) )
 );
 
