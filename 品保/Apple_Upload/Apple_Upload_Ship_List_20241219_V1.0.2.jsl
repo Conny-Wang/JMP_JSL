@@ -1,6 +1,8 @@
 ﻿//!
 
 // 2024/12/27 新增领益 X3562 机种
+// 2025/12/15 新增领益 X4054 X3776 机种
+
 
 //================================================================
 
@@ -125,7 +127,13 @@ For(
 
 
 // 修改领益箱号
-dt:Model << Value Labels( {"AMM" = "X3226", "BMM" = "X3226","JMM" = "X3562"} ) << Use Value Labels( 1 );
+LL_list = {
+"AMM" = "X3226", "BMM" = "X3226", 
+"JMM" = "X3562", "DHU" = "X4054", 
+"ZNR" = "X3776"
+};
+
+dt:Model << Value Labels(LL_list) << Use Value Labels( 1 );
 
 // 修改时间列
 dt:ATTACH_DATE << Format( "m/d/y h:m", 23 );
