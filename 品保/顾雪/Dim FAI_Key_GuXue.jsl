@@ -1,0 +1,20 @@
+﻿// 拼接 FAI 和 Key Num
+
+dt = Current Data Table();
+
+dt << New Column( "FAI_Num", "Character", Formula( Word( 2, dt:Item ) ) );
+
+dt << New Column( "Key_Num", "Character", Formula( If( :Key_Number < 10, :Key_Number / 100, :Key_Number / 100 ) ) );
+
+dt:FAI_Num << Delete Formula;
+dt:Key_Num << Delete Formula;
+
+dt:FAI_Num << Set Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+dt:Key_Num << Set Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+
+dt << New Column( "Sort", "Numeric", Formula( dt:FAI_Num + dt:Key_Num ) );
+
+dt:Sort << Delete Formula;
+
+dt << Delete Columns( :Key_Num );
+dt << Delete Columns( :FAI_Num );
