@@ -1,0 +1,230 @@
+﻿//!
+
+// V2549 SE Force 判断脚本
+
+
+
+Names Default To Here( 1 );
+
+filename = Pick File();
+//dt = Current Data Table();
+dt = Open(
+	filename,
+	Worksheets( "Sheet1" ),
+	Use for all sheets( 1 ),
+	Concatenate Worksheets( 0 ),
+	Create Concatenation Column( 0 ),
+	Worksheet Settings(
+		1,
+		Has Column Headers( 0 ),
+		Number of Rows in Headers( 1 ),
+		Headers Start on Row( 1 ),
+		Data Starts on Row( 13 ),
+		Data Starts on Column( 1 ),
+		Data Ends on Row( 0 ),
+		Data Ends on Column( 0 ),
+		Replicated Spanned Rows( 1 ),
+		Replicated Spanned Headers( 0 ),
+		Suppress Hidden Rows( 1 ),
+		Suppress Hidden Columns( 1 ),
+		Suppress Empty Columns( 1 ),
+		Treat as Hierarchy( 0 ),
+		Multiple Series Stack( 0 ),
+		Import Cell Colors( 0 ),
+		Limit Column Detect( 0 ),
+		Column Separator String( "-" )
+	)
+);
+
+
+//删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+dt << New Column( "S1", Numeric, "Continuous", Format( "Best", 12 ), Set Selected ) <<
+Move Selected Columns( {:S1}, after( :Column 1 ) );
+
+dt << New Column( "S2", Numeric, "Continuous", Format( "Best", 12 ), Set Selected ) <<
+Move Selected Columns( {:S2}, after( :Column 1 ) );
+
+
+// 新列名
+colnames = {"SN", "K序号", "DOME2", "F1", "F1 2", "F2", "F2 2", "F3", "F3 2", "F4", "F4 2", "Cf/Cr", "Cf/Cr 2", "Max", "Max 2", "OnR1",
+"OnR1 2", "IR", "IR 2"};
+// 循环改名
+For( i = 1, i <= N Items( colnames ), i++,
+	Column( dt, i ) << set name( colnames[i] )
+);
+
+
+//去除 * 号
+// 替换数据表中的全部
+Local( {dt = Current Data Table()},
+	dt << Begin Data Update;
+	For Each( {col}, dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		For Each Row( dt, col[] = Substitute( col[], "*", " ", <<IGNORECASE ) )
+	);
+	dt << End Data Update;
+);
+
+//所有转换为数字
+For( i = 2, i <= N Items( colnames ), i++,
+	cols = Column( i );
+	dt:cols << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+);
+
+// 筛选无用行并删除
+dt << Select Where( :SN == "" | :SN == "Avrg" | :SN == "Cpk" | :SN == "Maxi" | :SN == "Mini" | :SN == "Rang" | :SN == "SDev" );
+
+dt << Delete row();
+
+//构造 Key Num
+snass = Associative Array( dt[0, 1] );
+
+sncount = N Items( snass );
+
+snnum = 1 :: 78;
+snnums = [];
+
+For( i = 1, i <= sncount, i++,
+	snnums ||= snnum
+);
+Print( snnums );
+
+dt[0, 2] = Transpose( snnums );
+
+dt:DOME2 << Set Data Type( Character ) << Set Modeling Type( "Nominal" );
+
+
+// 获取小 K
+r1 = dt << Get Rows Where(
+	:K序号 == 1 | :K序号 == 2 | :K序号 == 3 | :K序号 == 4 | :K序号 == 5 | :K序号 == 6 | :K序号 == 7 | :K序号 == 8 | :K序号 == 9 | :K序号 == 10 | :K序号 == 11
+	 | :K序号 == 12 | :K序号 == 13 | :K序号 == 14 | :K序号 == 15 | :K序号 == 16 | :K序号 == 17
+);
+dt[r1,3] = "73-Q0009（小K）";
+
+//获取大 K 
+r2 = dt << Get Rows Where(
+	:K序号 == 18 | :K序号 == 19 | :K序号 == 20 | :K序号 == 21 | :K序号 == 22 | :K序号 == 23 |
+	:K序号 == 24 | :K序号 == 25 | :K序号 == 26 | :K序号 == 27 | :K序号 == 28 | :K序号 == 29 |
+	:K序号 == 30 | :K序号 == 31 | :K序号 == 32 | :K序号 == 33 | :K序号 == 34 | :K序号 == 35 |
+	:K序号 == 36 | :K序号 == 37 | :K序号 == 38 | :K序号 == 39 | :K序号 == 40 | :K序号 == 41 |
+	:K序号 == 42 | :K序号 == 43 | :K序号 == 44 | :K序号 == 45 | :K序号 == 46 | :K序号 == 47 |
+	:K序号 == 48 | :K序号 == 49 | :K序号 == 50 | :K序号 == 51 | :K序号 == 52 | :K序号 == 53 |
+	:K序号 == 54 | :K序号 == 55 | :K序号 == 56 | :K序号 == 57 | :K序号 == 58 | :K序号 == 59 |
+	:K序号 == 60 | :K序号 == 61 | :K序号 == 62 | :K序号 == 63 | :K序号 == 64 | :K序号 == 65 |
+	:K序号 == 66 | :K序号 == 67 | :K序号 == 68 | :K序号 == 69 | :K序号 == 70 | :K序号 == 71 |
+	:K序号 == 72 | :K序号 == 73 | :K序号 == 74 | :K序号 == 75 | :K序号 == 76 | :K序号 == 77 |
+	:K序号 == 78
+);
+dt[r2,3] = "25028P-A";
+// 规格判断
+
+Small_F1_LSL = 58;
+
+Small_F1_USL = 72;
+
+Big_F1_LSL = 55;
+
+Big_F1_USL = 69;
+
+
+SmallF4_LSL = 20;
+
+Big_F4_LSL = 21;
+
+
+CR_USL = 45;
+
+CR_LSL = 60;
+
+dt = Current Data Table();
+dt << New Column( "结果", Character);
+// 判断小 Dome F1 
+//dt <<  Select Where( dt:DOME2 == "73-Q0009（小K）" & dt:F1 < Small_F1_LSL | dt:DOME2 == "73-Q0009（小K）" & dt:F1 > Small_F1_USL ) << Data View;
+r3 = dt << Get Rows Where(dt:DOME2 == "73-Q0009（小K）" & dt:F1 < Small_F1_LSL | dt:DOME2 == "73-Q0009（小K）" & dt:F1 > Small_F1_USL );
+If( N Items( r3 ) > 0,
+	dt[r3, 20] = "小Dome F1 NG"
+);
+
+// 判断大 Dome F1 
+//dt <<  Select Where( dt:DOME2 == "25028P-A" & dt:F1 < Big_F1_LSL | dt:DOME2 == "25028P-A" & dt:F1 > Big_F1_USL) << Data View;
+r4 = dt << Get Rows Where(dt:DOME2 == "25028P-A" & dt:F1 < Big_F1_LSL | dt:DOME2 == "25028P-A" & dt:F1 > Big_F1_USL );
+If( N Items( r4 ) > 0,
+	dt[r4, 20] = "大 Dome F1 NG"
+);
+
+// 判断小 Dome F4
+//dt <<  Select Where( dt:DOME2 == "73-Q0009（小K）" & dt:F4 < SmallF4_LSL) << Data View;
+r5 = dt << Get Rows Where(dt:DOME2 == "73-Q0009（小K）" & dt:F4 < SmallF4_LSL );
+If( N Items( r5 ) > 0,
+	dt[r5, 20] = "小 Dome F4 NG"
+);
+
+// 判断大 Dome F4
+//dt <<  Select Where( dt:DOME2 == "25028P-A" & dt:F4 < Big_F4_LSL  ) << Data View;
+
+r6 = dt << Get Rows Where( dt:DOME2 == "25028P-A" & dt:F4 < Big_F4_LSL );
+If( N Items( r6 ) > 0,
+	dt[r6, 20] = "大 Dome F4 NG"
+);
+
+// 判断 CR 
+//dt <<  Select Where( dt:"Cf/Cr 2"n < CR_USL | dt:"Cf/Cr 2"n > CR_LSL ) << Data View;
+r7 = dt << Get Rows Where( dt:"Cf/Cr 2"n < CR_USL | dt:"Cf/Cr 2"n > CR_LSL );
+If( N Items( r7 ) > 0,
+	dt[r7, 20] = "CR NG"
+);
+
+
+
+/*dt <<  Graph Builder(
+	Size( 1144, 634 ),
+	Variables( Y( :F1 ), Y( :F4 ), Y( :"Cf/Cr 2"n ), Group X( :DOME2 ) ),
+	Elements(
+		Position( 1, 1 ),
+		Caption Box( Y, Legend( 46 ), Summary Statistic( "Max" ) ),
+		Caption Box( Y, Legend( 50 ), Summary Statistic( "Min" ) ),
+		Caption Box( Y, Legend( 54 ), Summary Statistic( "Mean" ) ),
+		Points( Y, Legend( 72 ) )
+	),
+	Elements(
+		Position( 1, 2 ),
+		Caption Box( Y, Legend( 47 ), Summary Statistic( "Max" ) ),
+		Caption Box( Y, Legend( 51 ), Summary Statistic( "Min" ) ),
+		Caption Box( Y, Legend( 55 ), Summary Statistic( "Mean" ) ),
+		Points( Y, Legend( 73 ) )
+	),
+	Elements(
+		Position( 1, 3 ),
+		Caption Box( Y, Legend( 48 ), Summary Statistic( "Max" ) ),
+		Caption Box( Y, Legend( 52 ), Summary Statistic( "Min" ) ),
+		Caption Box( Y, Legend( 56 ), Summary Statistic( "Mean" ) ),
+		Points( Y, Legend( 74 ) )
+	),
+	SendToReport(
+		Dispatch( {}, "F1", ScaleBox,
+			{Format( "Best", 12 ), Min( 47.1284639458123 ), Max( 78.770447169698 ),
+			Inc( 5 ), Minor Ticks( 4 ), Add Ref Line(
+				72, "Solid", "Medium Dark Red", "小K USL72", 1
+			), Add Ref Line( 58, "Solid", "Medium Dark Blue", "小K LSL58", 1 ),
+			Add Ref Line( 55, "Solid", "Medium Light Green", "25028P-A LSL55", 1 ),
+			Add Ref Line( 69, "Solid", "Fuchsia", "25028P-A LSL69", 1 )}
+		),
+		Dispatch( {}, "F4", ScaleBox,
+			{Format( "Best", 12 ), Min( 13.8760291769464 ), Max( 35.1866291827251 ),
+			Inc( 5 ), Minor Ticks( 4 ), Add Ref Line(
+				20, "Solid", "Medium Dark Blue", "LSL20", 1
+			)}
+		),
+		Dispatch( {}, "Cf/Cr 2", ScaleBox,
+			{Min( 37.8114820544336 ), Max( 65.2842845344335 ), Inc( 5 ),
+			Minor Ticks( 4 ), Add Ref Line(
+				60, "Solid", "Medium Dark Red", "USL60", 1
+			), Add Ref Line( 45, "Solid", "Medium Dark Blue", "LSL45", 1 )}
+		),
+		Dispatch( {}, "graph title", TextEditBox, {Set Text( "第1批 25片曲线数据" )} )
+	)
+);
+
+*/
