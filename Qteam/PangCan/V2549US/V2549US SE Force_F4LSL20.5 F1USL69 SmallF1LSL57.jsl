@@ -120,13 +120,13 @@ r2 = dt << Get Rows Where(
 dt[r2,3] = "25028P-A";
 // 规格判断
 
-Small_F1_LSL = 58;
+Small_F1_LSL = 57;
 
 Small_F1_USL = 72;
 
 Big_F1_LSL = 55;
 
-Big_F1_USL = 69.5;
+Big_F1_USL = 69;
 
 
 SmallF4_LSL = 20;
