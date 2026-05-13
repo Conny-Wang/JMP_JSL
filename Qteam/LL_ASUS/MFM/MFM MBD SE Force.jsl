@@ -1,0 +1,394 @@
+﻿//!
+
+// 2026/05/09 新增 MFM 机种 MBD SE Force 脚本 Conny
+// MFM 规格表.jmp 此文件必须和此脚本放在一个文件夹
+// 必须是10x数据 脚本有限定
+
+
+//选择文件路径
+file_path = Pick File();
+
+//窗体
+NwFunc = Function({tips},
+	New Window("警告",
+		<<Modal,
+		Text Box(tips),
+		Button Box( "OK" ),
+	)
+);
+
+If( Num( Left( JMP Version(), 2 ) ) < 19,
+	NwFunc("注意：JMP 版本低于 19 需要把 xls 文件保存为 xlsx再运行此脚本")
+);
+
+//打开文件
+Open(
+	file_path,
+	Worksheets( "Sheet1" ),
+	Use for all sheets( 1 ),
+	Concatenate Worksheets( 0 ),
+	Create Concatenation Column( 0 ),
+	Worksheet Settings(
+		1,
+		Has Column Headers( 0 ),
+		Number of Rows in Headers( 1 ),
+		Headers Start on Row( 1 ),
+		Data Starts on Row( 13 ),
+		Data Starts on Column( 1 ),
+		Data Ends on Row( 0 ),
+		Data Ends on Column( 0 ),
+		Replicated Spanned Rows( 1 ),
+		Replicated Spanned Headers( 0 ),
+		Suppress Hidden Rows( 1 ),
+		Suppress Hidden Columns( 1 ),
+		Suppress Empty Columns( 1 ),
+		Treat as Hierarchy( 0 ),
+		Multiple Series Stack( 0 ),
+		Import Cell Colors( 0 ),
+		Limit Column Detect( 0 ),
+		Column Separator String( "-" )
+	)
+);
+
+
+dt = Current Data Table();
+
+If( Is Empty( dt ),
+	NwFunc( "未打开数据表。" );
+	Stop();
+);
+
+// 选择匹配单元格
+dt << Select Where(
+	:Column 1 == "" | :Column 1 == "Avrg" | :Column 1 == "Cpk" | :Column 1 == "Maxi" | :Column 1 == "Mini" |
+	:Column 1 == "Rang" | :Column 1 == "SDev"
+);
+// 删除匹配的单元格
+dt << Delete Rows;
+
+// 删除多余的列
+dt << Delete Columns([6 7 8 9 10 12 14 15 16 17]);
+
+
+// 替换数据表中的全部 * 号
+Local( {dt = Data Table( "Sheet1" )},
+	dt << Begin Data Update;
+	For Each( {col},
+		dt << Get Column Reference( dt << Get Column Names( Character ) ),
+		If( !Is Empty( col << Get Formula ),
+			Continue()
+		);
+		For Each Row( dt, col[] = Substitute( col[], "*", "", <<IGNORECASE ) );
+	);
+	dt << End Data Update;
+);
+
+// 修改列名
+colname = {"SN","PF","PT","BF","BT","CR","TT"};
+For( 
+	i = 1, i <= N Items( colname ), i++,
+	Column( dt, i ) << set name( colname[i] );
+	
+);
+// 修改列为数字格式
+For( 
+	i = 2, i <= N Items( colname ), i++,
+	cols = column(i);
+	dt:cols << Data Type( Numeric ) << Set Modeling Type( "Continuous" );
+);
+// 新建 Key Num 列
+dt << New Column( "Key Num", Numeric, "Continuous", ) << Move Selected Columns( {:Key Num}, after( :SN ) );
+
+// 新建 Dome Size 列
+ 
+dt << New Column( "Dome Size", Character ) << Move Selected Columns( {:Dome Size}, after( :Key Num ) );
+
+// 新建 Assy 列
+dt << New Column( "Assy", Formula( Substr( :SN, 1, 5 ) ) ) << Move Selected Columns( {:Assy}, after( :SN ) );
+
+
+// 判断测试 SN 是不是 10x
+If( N Items( Associative Array( dt:SN ) << get keys ) != 10,
+	NwFunc( "SN 数量错误 不是 10pcs 请检查" );
+	Stop();
+);
+
+// 构造 Key Num
+us_num = Repeat(1::79,10);
+uk_num = Repeat(1::80,10);
+jp_num = Repeat(1::83,10);
+
+us_dome = Repeat({"Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small",
+"Small", "Small", "Small", "Small", "Small", "Small", "Small", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Small", "Small", "Large"},10);
+
+uk_dome = Repeat({"Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small",
+"Small", "Small", "Small", "Small", "Small", "Small", "Small", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Small", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Small", "Small", "Large"},10);
+
+jp_dome = Repeat({"Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small", "Small",
+"Small", "Small", "Small", "Small", "Small", "Small", "Small", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Small", "Small", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Small", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large", "Large",
+"Large", "Large", "Small", "Large", "Small", "Large", "Large", "Large", "Small",
+"Small", "Large"},10);
+
+If(
+	dt:Assy[1] == "MFMUS",
+	dt:Key Num << set values(us_num);
+	dt:Dome Size << set values(us_dome)
+	,
+	dt:Assy[1] == "MFMUK",
+	dt:Key Num << set values(uk_num);
+	dt:Dome Size << set values(uk_dome)
+	,
+	dt:Assy[1] == "MFMJP",
+	dt:Key Num << set values(jp_num);
+	dt:Dome Size << set values(jp_dome)
+	,
+	
+);
+
+//打开规格表
+
+Try( dt2 = Open( "./MFM 规格表.jmp" ),throw("打开《MFM 规格表.jmp》失败 规格表是否在脚本一个文件夹"));
+// 写入规格到表中
+dt << Update( With( dt2 ), Match Columns( :Assy = :Assy, :Key Num = :Key Num ) );
+// 关闭规格表
+Close( dt2, NoSave );
+
+
+//删除脚本列表
+Script_List = dt << Get Table Script Names;
+dt << Delete Scripts( Script_List );
+
+
+ dt << Get Column Names( String );
+
+colresultusl = {"PF USL R", "PT USL R", "BF USL R", "BT USL R", "CR USL R", "TT USL R"};
+
+colresultlsl = {"PF LSL R", "PT LSL R", "BF LSL R", "BT LSL R", "CR LSL R","TT LSL R"};
+
+colusl = {"PF USL","PT USL", "BF USL", "BT USL", "CR USL", "TT USL"};
+
+collsl = {"PF LSL", "PT LSL", "BF LSL","BT LSL", "CR LSL", "TT LSL"};
+
+coltest = {"PF", "PT", "BF", "BT", "CR", "TT"};
+
+// 新建所有结果列并判断
+For( i = 1, i <= 6 ,i++,
+
+New Column( colresultusl[i], "Character", "Nominal" );
+	
+fm = Eval Expr(
+	Expr(Column( dt, colresultusl[i] )) << set Formula( If( Expr( as name(  colusl[i]  )) >= Expr( as name( coltest[i] )), "OK", "NG" ) )
+);
+	fm;
+);
+
+
+For( i = 1, i <= 6 ,i++,
+
+New Column( colresultlsl[i], "Character", "Nominal" );
+	
+fm = Eval Expr(
+	Expr(Column( dt, colresultlsl[i] )) << set Formula( If( Expr( as name(  collsl[i]  )) > Expr( as name( coltest[i] )), "NG", "OK" ) )
+);
+	fm;
+);
+
+
+// 判断结果
+resulttemp = {};
+For( i = 1, i <= 12, i++,
+	Insert Into( resulttemp, dt[0, 22 + i] )
+);
+
+resultcount = N Items( Associative Array( resulttemp ) );
+
+If(  resultcount > 1,
+	NwFunc("有超规格，请检查！")
+	,
+	NwFunc("数据OK")
+);
+
+
+
+
+
+// 拉取图形
+obj = dt << Graph Builder(
+	Size( 1066, 642 ),
+	Variables( Y( :PF ), Y( :BF ), Y( :CR ), Group X( :Dome Size ) ),
+	Elements(
+		Position( 1, 1 ),
+		Points( Y, Legend( 43 ) ),
+		Caption Box( Y, Legend( 53 ), Summary Statistic( "Max" ) ),
+		Caption Box(
+			Y,
+			Legend( 56 ),
+			Summary Statistic( "Mean" ),
+			Summary Statistic 2( "Min" )
+		)
+	),
+	Elements(
+		Position( 1, 2 ),
+		Points( Y, Legend( 44 ) ),
+		Caption Box( Y, Legend( 54 ), Summary Statistic( "Max" ) ),
+		Caption Box(
+			Y,
+			Legend( 57 ),
+			Summary Statistic( "Mean" ),
+			Summary Statistic 2( "Min" )
+		)
+	),
+	Elements(
+		Position( 1, 3 ),
+		Points( Y, Legend( 74 ) ),
+		Caption Box( Y, Legend( 75 ), Summary Statistic( "Max" ) ),
+		Caption Box(
+			Y,
+			Legend( 76 ),
+			Summary Statistic( "Mean" ),
+			Summary Statistic 2( "Min" )
+		)
+	),
+	SendToReport(
+		Dispatch( {}, "PF", ScaleBox,
+			{Min( 49 ), Max( 71 ), Inc( 2 ), Minor Ticks( 3 ),
+			Add Ref Line( 68, "Dotted", "Blue", "L_USL 68", 1 ),
+			Add Ref Line( 50, "Dotted", "Blue", "L_LSL 50", 1 ),
+			Add Ref Line( 70, "Dotted", "Red", "S_USL 70", 1 ),
+			Add Ref Line( 52, "Dotted", "Red", "S_LSL 52", 1 )}
+		),
+		Dispatch( {}, "BF", ScaleBox,
+			{Min( 17 ), Max( 35 ), Inc( 1 ), Minor Ticks( 1 ),
+			Add Ref Line( 32, "Dotted", "Blue", "L_USL 32", 1 ),
+			Add Ref Line( 18, "Dotted", "Blue", "L_LSL 18", 1 ),
+			Add Ref Line( 34, "Dotted", "Red", "S_USL 34", 1 ),
+			Add Ref Line( 20, "Dotted", "Red", "S_LSL 20", 1 )}
+		),
+		Dispatch( {}, "CR", ScaleBox,
+			{Min( 44 ), Max( 64 ), Inc( 10 ), Minor Ticks( 1 ),
+			Add Ref Line( 45, "Dotted", "Blue", "L&S_LSL 45", 1 ),
+			Add Ref Line( 63, "Dotted", "Blue", "L&S_USL 63", 1 )}
+		),
+		Dispatch( {}, "graph title", TextEditBox, {Set Text( "PF/BF/CR" )} )
+	)
+);
+
+
+obj2 = dt << Graph Builder(
+	Size( 1066, 625 ),
+	Variables( Y( :PT ), Y( :BT ), Y( :TT ), Group X( :Dome Size ) ),
+	Elements(
+		Position( 1, 1 ),
+		Points( Y, Legend( 43 ) ),
+		Caption Box( Y, Legend( 53 ), Summary Statistic( "Max" ) ),
+		Caption Box(
+			Y,
+			Legend( 56 ),
+			Summary Statistic( "Mean" ),
+			Summary Statistic 2( "Min" )
+		)
+	),
+	Elements(
+		Position( 1, 2 ),
+		Points( Y, Legend( 44 ) ),
+		Caption Box( Y, Legend( 54 ), Summary Statistic( "Max" ) ),
+		Caption Box(
+			Y,
+			Legend( 57 ),
+			Summary Statistic( "Mean" ),
+			Summary Statistic 2( "Min" )
+		)
+	),
+	Elements(
+		Position( 1, 3 ),
+		Points( Y, Legend( 45 ) ),
+		Caption Box( Y, Legend( 55 ), Summary Statistic( "Max" ) ),
+		Caption Box(
+			Y,
+			Legend( 58 ),
+			Summary Statistic( "Mean" ),
+			Summary Statistic 2( "Min" )
+		)
+	),
+	SendToReport(
+		Dispatch(
+			{},
+			"PT",
+			ScaleBox,
+			{Min( 0.18 ), Max( 0.54 ), Inc( 0.01 ), Minor Ticks( 1 ),
+			Add Ref Line( 0.23, "Dotted", "Red", "S_LSL 0.23", 1 ),
+			Add Ref Line( 0.53, "Dotted", "Red", "S_USL 0.53", 1 ),
+			Add Ref Line( 0.49, "Dotted", "Blue", "L_USL 0.49", 1 ),			
+			Add Ref Line( 0.19, "Dotted", "Blue", "L_LSL 0.19", 1 )}
+		),
+		Dispatch(
+			{},
+			"BT",
+			ScaleBox,
+			{Min( 0.43 ), Max( 0.81 ), Inc( 0.02 ), Minor Ticks( 3 ),
+			Add Ref Line( 0.5, "Dotted", "Red", "S_LSL 0.5", 1 ),
+			Add Ref Line( 0.8, "Dotted", "Red", "S_USL 0.8", 1 ),
+			Add Ref Line( 0.44, "Dotted", "Blue", "L_LSL 0.44", 1 ),
+			Add Ref Line( 0.74, "Dotted", "Blue", "L_USL 0.74", 1 )}
+		),
+		Dispatch(
+			{},
+			"TT",
+			ScaleBox,
+			{Min( 0.7 ), Max( 1.33 ), Inc( 0.5 ), Minor Ticks( 4 ),
+			Add Ref Line( 0.92, "Dotted", "Red", "S_LSL 0.92", 1 ),
+			Add Ref Line( 1.32, "Dotted", "Red", "S_USL 1.32", 1 ),
+			Add Ref Line( 0.71, "Dotted", "Blue", "L_LSL 0.71", 1 ),
+			Add Ref Line( 1.11, "Dotted", "Blue", "L_USL 1.11", 1 )}
+		),
+		Dispatch( {}, "graph title", TextEditBox, {Set Text( "PT/BT/TT" )} )
+	)
+);
+
+obj << Save Script to Data Table;
+obj2 << Save Script to Data Table;
+
+dt << Tabulate(
+	Add Table(
+		Row Table( Grouping Columns( :PF USL R ) ),
+		Row Table( Grouping Columns( :PT USL R ) ),
+		Row Table( Grouping Columns( :BF USL R ) ),
+		Row Table( Grouping Columns( :BT USL R ) ),
+		Row Table( Grouping Columns( :CR USL R ) ),
+		Row Table( Grouping Columns( :TT USL R ) ),
+		Row Table( Grouping Columns( :PF LSL R ) ),
+		Row Table( Grouping Columns( :PT LSL R ) ),
+		Row Table( Grouping Columns( :BF LSL R ) ),
+		Row Table( Grouping Columns( :BT LSL R ) ),
+		Row Table( Grouping Columns( :CR LSL R ) ),
+		Row Table( Grouping Columns( :TT LSL R ) )
+	)
+);
+
+// 文件名信息收集
+assyname = dt[1,2];
+mbdc = Substr( dt[1,1],18,6);
+todaytime = Format( Today(), "Format Pattern", "<YYYY><MM><DD>_<hh24><mm><ss>" );
+
+
+dt << Save("\\192.168.0.245\品保课\A产品数据\领益 华硕\MFM 机种/LL_ASUS_"|| assyname ||"_MBDC"|| mbdc ||"_D"|| todaytime);
