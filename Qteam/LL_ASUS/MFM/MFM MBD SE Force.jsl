@@ -1,6 +1,7 @@
 ﻿//!
 
 // 2026/05/09 新增 MFM 机种 MBD SE Force 脚本 Conny
+// 2026/05/15 文件名新增判定结果 Conny
 // MFM 规格表.jmp 此文件必须和此脚本放在一个文件夹
 // 必须是10x数据 脚本有限定
 
@@ -222,10 +223,14 @@ For( i = 1, i <= 12, i++,
 
 resultcount = N Items( Associative Array( resulttemp ) );
 
+
+
 If(  resultcount > 1,
-	NwFunc("有超规格，请检查！")
+	NwFunc("有超规格，请检查！");
+	resultfilename = "NG";
 	,
-	NwFunc("数据OK")
+	NwFunc("数据OK");
+	resultfilename = "OK";
 );
 
 
@@ -391,4 +396,4 @@ mbdc = Substr( dt[1,1],18,6);
 todaytime = Format( Today(), "Format Pattern", "<YYYY><MM><DD>_<hh24><mm><ss>" );
 
 
-dt << Save("\\192.168.0.245\品保课\A产品数据\领益 华硕\MFM 机种/LL_ASUS_"|| assyname ||"_MBDC"|| mbdc ||"_D"|| todaytime);
+dt << Save("\\192.168.0.245\品保课\A产品数据\领益 华硕\MFM 机种/LL_ASUS_"|| assyname ||"_MBDC"|| mbdc ||"_D"|| todaytime ||"_" || resultfilename);
